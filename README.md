@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-GPL--2.0-blue)
 ![Joomla](https://img.shields.io/badge/Joomla-3.10-orange)
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)
-![Downloads](https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total)
+![Downloads](https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total?cacheSeconds=3600)
 
 A Joomla **system plugin** that strips email addresses out of the public-facing HTML output of a site, so they can never be scraped by spam harvesters — because they simply never reach the page in the first place.
 
