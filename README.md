@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="plg_system_fgemailremover logo" width="128" height="128">
+</p>
+
 # FG Email Remover plugin for Joomla
 
 ![Version](https://img.shields.io/github/v/release/ferino75/plg_system_fgemailremover?label=version)
