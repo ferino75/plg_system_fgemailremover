@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner_jed" alt="plg_system_fgemailremover logo">
+  <img src="assets/banner_jed.png" alt="plg_system_fgemailremover logo">
 </p>
 
 # Email Remover plugin for Joomla
