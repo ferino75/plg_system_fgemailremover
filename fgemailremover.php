@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.8.0
+ * @version     1.8.1
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -635,28 +635,34 @@ class PlgSystemFgemailremover extends JPlugin
     }
 
     /**
+     * Cached, parsed whitelist entries - see getWhitelist().
+     *
+     * @var array|null
+     */
+    private $whitelistCache;
+
+    /**
      * Parses the "whitelist" parameter (one entry per line, or
-     * comma-separated) into a lower-cased array, cached for the request.
+     * comma-separated) into a lower-cased array, cached per plugin
+     * instance for the request.
      *
      * @return  array
      */
     private function getWhitelist()
     {
-        static $whitelist = null;
-
-        if ($whitelist === null) {
-            $whitelist = [];
-            $raw       = (string) $this->params->get('whitelist', '');
+        if ($this->whitelistCache === null) {
+            $this->whitelistCache = [];
+            $raw                  = (string) $this->params->get('whitelist', '');
 
             foreach (preg_split('/[\r\n,]+/', $raw) as $line) {
                 $line = mb_strtolower(trim($line));
 
                 if ($line !== '') {
-                    $whitelist[] = $line;
+                    $this->whitelistCache[] = $line;
                 }
             }
         }
 
-        return $whitelist;
+        return $this->whitelistCache;
     }
 }
