@@ -1,20 +1,27 @@
 <p align="center">
-  <img src="assets/banner_jed.png" alt="plg_system_fgemailremover logo">
+  <img src="assets/logo.png" alt="plg_system_fgemailremover logo" width="128" height="128">
 </p>
 
-# Email Remover plugin for Joomla
+# plg_system_fgemailremover
 
 ![Version](https://img.shields.io/github/v/release/ferino75/plg_system_fgemailremover?label=version)
 ![License](https://img.shields.io/badge/license-GPL--2.0-blue)
-![Joomla](https://img.shields.io/badge/Joomla-3.10%2B-orange?logo=joomla&logoColor=white)
-![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4?logo=php&logoColor=white)
+![Joomla](https://img.shields.io/badge/Joomla-3.10%20--%206-orange)
+![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)
 ![Downloads](https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total?cacheSeconds=3600)
 
 A Joomla **system plugin** that strips email addresses out of the public-facing HTML output of a site, so they can never be scraped by spam harvesters — because they simply never reach the page in the first place.
 
 Unlike classic "email cloaking" plugins, this doesn't just obfuscate the address for bots while keeping it intact for real visitors — it can **remove it entirely**, replace it with configurable text/HTML, or render it as a **generated PNG image** (with an optional custom TrueType font) so no literal address text ever appears in the page source at all.
 
-Built for **Joomla 3.10 / PHP 7.4** on purpose — no PHP namespaces, no PSR-4 autoloading, classic `JPlugin` style, so it keeps working on older installations that can't move to Joomla 4+.
+Ships as **two separate packages sharing the same plugin identity** (`fgemailremover`), so Joomla's own updater always offers the right one for your site:
+
+| | Joomla | PHP | Location in this repo |
+|---|---|---|---|
+| **Classic build** | 3.10.x | 7.4+ | repo root (`fgemailremover.php`, flat `JPlugin` class, no namespace) |
+| **Native build** | 4.x / 5.x / 6.x | 8.1+ | [`/joomla4-6`](joomla4-6) (`CMSPlugin` + `SubscriberInterface`, PSR-4 namespace `FG\Plugin\System\Fgemailremover`) |
+
+The classic build deliberately avoids PHP namespaces and PSR-4 autoloading so it keeps working on Joomla 3.10 installs that can't move to Joomla 4+. Joomla 4 removed native support for the old `JPlugin`/`JFactory`/`JUri`/`JLog` classes the classic build relies on — Joomla 5 still provides them for now only via the "Behaviour - Backward Compatibility" plugin, and Joomla 6 removes that compatibility layer entirely — so the classic ZIP will not run correctly on Joomla 4, 5 or 6; install the native build there instead.
 
 ## Features
 
@@ -30,12 +37,12 @@ Built for **Joomla 3.10 / PHP 7.4** on purpose — no PHP namespaces, no PSR-4 a
 
 ## Installation
 
-1. Download the latest release ZIP from the [Releases](https://github.com/ferino75/plg_system_fgemailremover/releases) page.
+1. Download the release ZIP matching your Joomla version from the [Releases](https://github.com/ferino75/plg_system_fgemailremover/releases) page — the classic build's asset is named `plg_system_fgemailremover_vX.Y.Z.zip`, the native Joomla 4-6 build's is `plg_system_fgemailremover_j46_vX.Y.Z.zip`.
 2. Joomla admin → **Extensions → Manage → Install** → upload the ZIP.
 3. **Extensions → Plugins** → enable **System - Email Remover**.
 4. Configure replacement mode, exceptions, and (optionally) an image font under the plugin's Options tab.
 
-Once installed, Joomla will offer future updates automatically via **Extensions → Manage → Update** (this repo's `updates.xml` is wired up as the plugin's update server).
+Once installed, Joomla will offer future updates automatically via **Extensions → Manage → Update** — this repo's `updates.xml` is wired up as the plugin's update server and lists both builds, so Joomla always offers the one matching the site's own Joomla version.
 
 ## Configuration
 

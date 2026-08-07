@@ -1,5 +1,20 @@
 # Changelog
 
+## joomla4-6/ v1.1.0 - 2026-08-07
+# Fixes emails going completely undetected on Joomla 6 (and any Joomla 5/6 site using core's native email cloaking) - `com_contact` (and potentially other core views) now renders addresses via Joomla's own `<joomla-hidden-mail>` web component, which stores the address as base64 in `first`/`last`/`text` attributes rather than as literal text or a `mailto:` href, so none of the existing passes could ever find it
++ Adds a dedicated pass that finds `<joomla-hidden-mail is-email="1" ...>` elements (plain `strpos()`-based, same backtracking-safe approach as the rest of the plugin), decodes the `text` attribute to get the real address for whitelist checking, and replaces the whole element like any other match
+# Fixes the "nothing to do" early exit incorrectly skipping pages whose only removable content is a `<joomla-hidden-mail>` element - base64 never contains "@", so the existing `strpos($buffer, '@') === false` check alone caused the plugin to return before ever processing such a page; now also checks for the literal `<joomla-hidden-mail` substring
+# Fixes `getWhitelist()` caching its parsed result in a `static` local variable, which in PHP is shared across *every* instance of the class within one process rather than per-object - invisible in normal Joomla requests (one plugin instance per request) but incorrect regardless; now cached as a per-instance property
+
+## joomla4-6/ v1.0.0 - 2026-08-07
++ New: native Joomla 4/5/6 build, in [`/joomla4-6`](joomla4-6) - `CMSPlugin` + `SubscriberInterface`, PSR-4 namespace `FG\Plugin\System\Fgemailremover`, `services/provider.php` DI registration - same element/identity (`fgemailremover`) and same feature set as the classic build, ported line-for-line (only the Joomla-API integration layer changed: `JFactory`/`JUri`/`JLog` -> `Factory`/`Uri`/`Log`, `onAfterRender()` -> `SubscriberInterface::getSubscribedEvents()`)
+^ Reason: Joomla 4 removed native support for the classic build's `JPlugin`/`JFactory`/`JUri`/`JLog` classes; Joomla 5 only provides them via the "Behaviour - Backward Compatibility" plugin (on by default, but explicitly a removable/temporary crutch), and Joomla 6 removes that compatibility layer entirely - so the classic ZIP cannot run correctly on Joomla 4, 5 or 6
++ `updates.xml` now lists both builds as separate `<update>` entries under the same element, matched by `<targetplatform>` (`3\.[0-9]+\.[0-9]+` vs `[456]\.[0-9]+\.[0-9]+`, verified mutually exclusive) so Joomla's updater always offers the correct one for the site's own Joomla version
++ Versioned independently from the classic build (starts at 1.0.0) since it's a distinct codebase/package, despite sharing the same plugin identity and feature set
+
+## v1.8.1 - 2026-08-07
+# Fixes `getWhitelist()` caching its parsed result in a `static` local variable instead of a per-instance property (see joomla4-6/ v1.1.0 for details) - same fix ported here for consistency, though it's invisible in normal Joomla requests since only one plugin instance is ever created per request
+
 ## v1.8.0 - 2026-08-04
 + Renamed from `plg_system_emailremover` to `plg_system_fgemailremover` (FG series naming), published to GitHub
 ^ Behaviour is unchanged - element/folder/class name and language constants updated, cache folder moved to `images/fgemailremover_cache`; not switched to a PHP namespace (unlike other FG-series plugins), since namespaced/PSR-4 plugins require Joomla 4+ and this plugin specifically targets Joomla 3.10/PHP 7.4

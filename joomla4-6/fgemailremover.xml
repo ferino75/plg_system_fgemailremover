@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension version="3.1" type="plugin" group="system" method="upgrade">
+    <name>PLG_SYSTEM_FGEMAILREMOVER</name>
+    <author>Fero</author>
+    <creationDate>August 2026</creationDate>
+    <copyright>Copyright (C) 2026 Fero. All rights reserved.</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <version>1.1.0</version>
+    <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
+
+    <namespace path="src">FG\Plugin\System\Fgemailremover</namespace>
+
+    <updateservers>
+        <server type="extension" priority="1" name="PLG_SYSTEM_FGEMAILREMOVER">https://raw.githubusercontent.com/ferino75/plg_system_fgemailremover/master/updates.xml</server>
+    </updateservers>
+
+    <files>
+        <folder plugin="fgemailremover">services</folder>
+        <folder>src</folder>
+        <folder>language</folder>
+    </files>
+
+    <languages>
+        <language tag="en-GB">language/en-GB/en-GB.plg_system_fgemailremover.ini</language>
+        <language tag="en-GB">language/en-GB/en-GB.plg_system_fgemailremover.sys.ini</language>
+        <language tag="sk-SK">language/sk-SK/sk-SK.plg_system_fgemailremover.ini</language>
+        <language tag="sk-SK">language/sk-SK/sk-SK.plg_system_fgemailremover.sys.ini</language>
+    </languages>
+
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field
+                    name="replacement_mode"
+                    type="list"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_MODE_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_MODE_DESC"
+                    default="text"
+                >
+                    <option value="text">PLG_SYSTEM_FGEMAILREMOVER_FIELD_MODE_TEXT</option>
+                    <option value="image">PLG_SYSTEM_FGEMAILREMOVER_FIELD_MODE_IMAGE</option>
+                </field>
+                <field
+                    name="image_css_class"
+                    type="text"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_IMAGE_CLASS_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_IMAGE_CLASS_DESC"
+                    default="noshadow"
+                    showon="replacement_mode:image"
+                />
+                <field
+                    name="image_font_path"
+                    type="text"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_FONT_PATH_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_FONT_PATH_DESC"
+                    default=""
+                    showon="replacement_mode:image"
+                />
+                <field
+                    name="image_font_size"
+                    type="number"
+                    filter="float"
+                    min="6"
+                    max="72"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_FONT_SIZE_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_FONT_SIZE_DESC"
+                    default="14"
+                    showon="replacement_mode:image"
+                />
+                <field
+                    name="replacement_text"
+                    type="textarea"
+                    rows="3"
+                    cols="60"
+                    filter="raw"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_REPLACEMENT_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_REPLACEMENT_DESC"
+                    default=""
+                />
+                <field
+                    name="whitelist"
+                    type="textarea"
+                    rows="4"
+                    cols="60"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_WHITELIST_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_WHITELIST_DESC"
+                    default=""
+                />
+                <field
+                    name="log_timing"
+                    type="radio"
+                    class="btn-group btn-group-yesno"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_LOG_TIMING_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_LOG_TIMING_DESC"
+                    default="0"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+            </fieldset>
+        </fields>
+    </config>
+</extension>
