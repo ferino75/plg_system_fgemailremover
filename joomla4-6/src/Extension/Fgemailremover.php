@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.2.0
+ * @version     1.3.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -711,6 +711,15 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      * ever reaches the page source. Falls back to the text replacement
      * if image generation isn't available or fails for any reason.
      *
+     * The <img> tag deliberately carries both the HTML width/height
+     * attributes AND matching fixed-pixel width/height in its inline
+     * style (plus max-width:none) - these are small text-rendering
+     * images, not photos, and should never be stretched by a site's
+     * generic "responsive image" CSS (img{max-width:100%;height:auto}),
+     * template rules, or third-party lazy-loading libraries reacting to
+     * a class like "lazy" - inline pixel dimensions reliably win over
+     * that kind of low-specificity external CSS.
+     *
      * @param   string  $address      The real email address (for the image content).
      * @param   string  $replacement  The configured text/HTML replacement (also used as image alt text).
      * @param   string  $mode         "text" or "image".
@@ -723,32 +732,39 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
             return $replacement;
         }
 
-        $imageUrl = $this->getEmailImageUrl($address);
+        $imageInfo = $this->getEmailImageInfo($address);
 
-        if ($imageUrl === null) {
+        if ($imageInfo === null) {
             return $replacement;
         }
 
         $alt      = $replacement !== '' ? $replacement : 'E-mailová adresa';
         $cssClass = trim((string) $this->params->get('image_css_class', 'noshadow'));
         $classes  = 'emailremover-img' . ($cssClass !== '' ? ' ' . $cssClass : '');
+        $width    = (int) $imageInfo['width'];
+        $height   = (int) $imageInfo['height'];
 
-        return '<img src="' . htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') . '"'
+        return '<img src="' . htmlspecialchars($imageInfo['url'], ENT_QUOTES, 'UTF-8') . '"'
             . ' alt="' . htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') . '"'
-            . ' class="' . htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') . '" style="vertical-align:middle;">';
+            . ' width="' . $width . '" height="' . $height . '"'
+            . ' class="' . htmlspecialchars($classes, ENT_QUOTES, 'UTF-8') . '"'
+            . ' style="vertical-align:middle;max-width:none;width:' . $width . 'px;height:' . $height . 'px;">';
     }
 
     /**
-     * Returns the public URL of a cached PNG image showing $email as
-     * pixels (generated once per unique address and reused after that),
-     * or null if GD isn't available or the image could not be created -
-     * callers should fall back to the text replacement in that case.
+     * Returns the public URL and pixel dimensions of a cached PNG image
+     * showing $email as pixels (generated once per unique address and
+     * reused after that), or null if GD isn't available or the image
+     * could not be created/read - callers should fall back to the text
+     * replacement in that case. Dimensions come from getimagesize() on
+     * the actual file on disk, so they're always accurate regardless of
+     * which rendering path (bitmap font or TTF) produced it.
      *
      * @param   string  $email
      *
-     * @return  string|null
+     * @return  array{url: string, width: int, height: int}|null
      */
-    private function getEmailImageUrl($email)
+    private function getEmailImageInfo($email)
     {
         if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
             return null;
@@ -765,19 +781,27 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         $absoluteDir  = JPATH_ROOT . $relativeDir;
         $absolutePath = JPATH_ROOT . $relativePath;
 
-        if (is_file($absolutePath)) {
-            return rtrim(Uri::root(true), '/') . $relativePath;
+        if (!is_file($absolutePath)) {
+            if (!is_dir($absoluteDir) && !@mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
+                return null;
+            }
+
+            if (!$this->renderEmailImage($email, $absolutePath)) {
+                return null;
+            }
         }
 
-        if (!is_dir($absoluteDir) && !@mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
+        $size = @getimagesize($absolutePath);
+
+        if ($size === false) {
             return null;
         }
 
-        if (!$this->renderEmailImage($email, $absolutePath)) {
-            return null;
-        }
-
-        return rtrim(Uri::root(true), '/') . $relativePath;
+        return [
+            'url'    => rtrim(Uri::root(true), '/') . $relativePath,
+            'width'  => $size[0],
+            'height' => $size[1],
+        ];
     }
 
     /**

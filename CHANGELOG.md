@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.3.0 - 2026-08-08
+# Fixes generated `<img>` tags (image mode) getting stretched/enlarged and re-centred on some sites' mobile views - a site's generic responsive-image CSS or a third-party lazy-loading library reacting to a class like `lazy` in the "Image CSS class" parameter can resize an image with no explicit dimensions to fill its container. The `<img>` tag now carries HTML `width`/`height` attributes and matching fixed-pixel `width`/`height` plus `max-width:none` in its inline style (dimensions read back from the actual generated PNG via `getimagesize()`), which reliably overrides that kind of low-specificity external CSS
+
+## v1.10.0 - 2026-08-08
+# Same `<img>` width/height fix as joomla4-6/ v1.3.0 above, ported to this build
+
 ## joomla4-6/ v1.2.0 - 2026-08-07
 # Fixes emails going undetected when a page uses Joomla core's *classic* `email.cloak` construct (`<span id="cloakHASH">...</span>` + paired `<script>`) instead of, or alongside, the newer `<joomla-hidden-mail>` component - still possibly used on some Joomla 4/5 sites. The real address is assembled by JavaScript from numeric-HTML-entity-encoded string fragments, so no literal "@" ever appears (it's always the five-character `&#64;`), and the general script-skip logic that protects arbitrary third-party JS was also walling this one narrow, known pattern off from ever being decoded
 + Adds a dedicated pass (run on the raw buffer *before* the script/style skip-block split, since it specifically needs to look inside this one paired `<script>`) that locates the span+script pair, decodes the assembled address for whitelist checking, and replaces the whole construct
