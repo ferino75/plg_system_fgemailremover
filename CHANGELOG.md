@@ -1,5 +1,14 @@
 # Changelog
 
+## joomla4-6/ v1.2.0 - 2026-08-07
+# Fixes emails going undetected when a page uses Joomla core's *classic* `email.cloak` construct (`<span id="cloakHASH">...</span>` + paired `<script>`) instead of, or alongside, the newer `<joomla-hidden-mail>` component - still possibly used on some Joomla 4/5 sites. The real address is assembled by JavaScript from numeric-HTML-entity-encoded string fragments, so no literal "@" ever appears (it's always the five-character `&#64;`), and the general script-skip logic that protects arbitrary third-party JS was also walling this one narrow, known pattern off from ever being decoded
++ Adds a dedicated pass (run on the raw buffer *before* the script/style skip-block split, since it specifically needs to look inside this one paired `<script>`) that locates the span+script pair, decodes the assembled address for whitelist checking, and replaces the whole construct
+^ Early exit now also checks for `id="cloak` alongside the existing `@` and `<joomla-hidden-mail` checks
+
+## v1.9.0 - 2026-08-07
+# Same classic `email.cloak` fix as joomla4-6/ v1.2.0 above, ported to this build - this is in fact the primary case for it, since Joomla 3.10 only ever uses this classic mechanism (com_contact's own contact-detail email field uses it by default), never the newer `<joomla-hidden-mail>` component. Confirmed against a real cloaked address on urbarterchova.sk
+^ Early exit now also checks for `id="cloak` alongside the existing `@` check
+
 ## joomla4-6/ v1.1.0 - 2026-08-07
 # Fixes emails going completely undetected on Joomla 6 (and any Joomla 5/6 site using core's native email cloaking) - `com_contact` (and potentially other core views) now renders addresses via Joomla's own `<joomla-hidden-mail>` web component, which stores the address as base64 in `first`/`last`/`text` attributes rather than as literal text or a `mailto:` href, so none of the existing passes could ever find it
 + Adds a dedicated pass that finds `<joomla-hidden-mail is-email="1" ...>` elements (plain `strpos()`-based, same backtracking-safe approach as the rest of the plugin), decodes the `text` attribute to get the real address for whitelist checking, and replaces the whole element like any other match
