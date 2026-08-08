@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.8.1
+ * @version     1.9.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -65,8 +65,12 @@ class PlgSystemFgemailremover extends JPlugin
 
         $buffer = $app->getBody();
 
-        // Cheap early exit - nothing to do if there is no "@" at all.
-        if (strpos($buffer, '@') === false) {
+        // Cheap early exit - nothing to do if there is neither a plain
+        // "@" (mailto: links, plain-text addresses) nor a classic Joomla
+        // email.cloak span (which encodes the address as JS string
+        // concatenation with numeric HTML entities - never a literal
+        // "@" - so it needs its own check here).
+        if (strpos($buffer, '@') === false && stripos($buffer, 'id="cloak') === false) {
             return;
         }
 
@@ -131,7 +135,17 @@ class PlgSystemFgemailremover extends JPlugin
     {
         $replacement = (string) $this->params->get('replacement_text', '');
         $mode        = (string) $this->params->get('replacement_mode', 'text');
-        $length      = strlen($html);
+
+        // Classic Joomla email.cloak spans embed the real address inside
+        // their own paired <script> block, which the general
+        // script-skip logic below deliberately walls off untouched -
+        // for good reason (never risk mangling arbitrary third-party
+        // JS), but that means it would also hide this one narrow, known
+        // pattern from ever being decoded. Handle it first, on the raw
+        // buffer, before anything gets marked as an opaque skip block.
+        $html = $this->stripClassicCloakElements($html, $replacement, $mode);
+
+        $length = strlen($html);
         $out         = '';
         $pos         = 0;
 
@@ -230,6 +244,176 @@ class PlgSystemFgemailremover extends JPlugin
         $html = $this->stripMailtoLinks($html, $replacement, $mode);
 
         return $this->stripPlainTextEmails($html, $replacement, $mode);
+    }
+
+    /**
+     * Removes Joomla core's classic <span id="cloakHASH">...</span> +
+     * <script> email-cloaking construct (JHtml::_('email.cloak', ...),
+     * used e.g. by com_contact's own contact-detail email field). The
+     * real address is never present as literal text anywhere in the raw
+     * HTML - it's assembled by JavaScript from string-concatenated,
+     * numeric-HTML-entity-encoded fragments (so not even a literal "@"
+     * appears - "@" is always "&#64;", five characters, none of them the
+     * "@" byte itself), meaning none of the plugin's other passes can
+     * ever find it. This pass locates the span+script pair with plain
+     * strpos()/stripos() (bounded, safe on any page size), decodes the
+     * assembled address for whitelist checking, and replaces the whole
+     * construct like any other match.
+     *
+     * @param   string  $html
+     * @param   string  $replacement
+     * @param   string  $mode
+     *
+     * @return  string
+     */
+    private function stripClassicCloakElements($html, $replacement, $mode)
+    {
+        $result = '';
+        $offset = 0;
+        $length = strlen($html);
+
+        while (($spanStart = stripos($html, '<span id="cloak', $offset)) !== false) {
+            $spanOpenEnd = strpos($html, '>', $spanStart);
+
+            if ($spanOpenEnd === false) {
+                $result .= substr($html, $offset);
+                $offset  = $length;
+                break;
+            }
+
+            $openTag = substr($html, $spanStart, $spanOpenEnd - $spanStart + 1);
+
+            if (!preg_match('/id\s*=\s*"cloak([a-z0-9]+)"/i', $openTag, $hashMatch)) {
+                // Not actually a recognisable cloak span - copy just this
+                // opening tag and keep scanning after it.
+                $result .= substr($html, $offset, $spanOpenEnd + 1 - $offset);
+                $offset  = $spanOpenEnd + 1;
+                continue;
+            }
+
+            $hash          = $hashMatch[1];
+            $spanClosePos  = stripos($html, '</span>', $spanOpenEnd);
+
+            if ($spanClosePos === false) {
+                $result .= substr($html, $offset, $spanOpenEnd + 1 - $offset);
+                $offset  = $spanOpenEnd + 1;
+                continue;
+            }
+
+            $spanEnd = $spanClosePos + strlen('</span>');
+
+            // The matching <script> block should follow shortly after
+            // (allow a little slack for whitespace between them).
+            $scriptStart = stripos($html, '<script', $spanEnd);
+
+            if ($scriptStart === false || $scriptStart - $spanEnd > 50) {
+                $result .= substr($html, $offset, $spanEnd - $offset);
+                $offset  = $spanEnd;
+                continue;
+            }
+
+            $scriptOpenEnd  = strpos($html, '>', $scriptStart);
+            $scriptClosePos = $scriptOpenEnd !== false ? stripos($html, '</script>', $scriptOpenEnd) : false;
+
+            if ($scriptOpenEnd === false || $scriptClosePos === false) {
+                $result .= substr($html, $offset, $spanEnd - $offset);
+                $offset  = $spanEnd;
+                continue;
+            }
+
+            $scriptContent = substr($html, $scriptOpenEnd + 1, $scriptClosePos - $scriptOpenEnd - 1);
+
+            // Confirm this script actually references our hash - i.e. it
+            // really is the cloak script for this exact span, not some
+            // unrelated <script> that merely happens to follow it.
+            if (strpos($scriptContent, $hash) === false) {
+                $result .= substr($html, $offset, $spanEnd - $offset);
+                $offset  = $spanEnd;
+                continue;
+            }
+
+            $matchEnd = $scriptClosePos + strlen('</script>');
+
+            $result .= substr($html, $offset, $spanStart - $offset);
+
+            $address = $this->decodeClassicCloak($scriptContent, $hash);
+
+            if ($address === null) {
+                // Couldn't decode a real address out of it - leave
+                // untouched rather than guess.
+                $result .= substr($html, $spanStart, $matchEnd - $spanStart);
+            } else {
+                $result .= $this->isWhitelisted($address)
+                    ? substr($html, $spanStart, $matchEnd - $spanStart)
+                    : $this->buildReplacement($address, $replacement, $mode);
+            }
+
+            $offset = $matchEnd;
+        }
+
+        $result .= substr($html, $offset);
+
+        return $result;
+    }
+
+    /**
+     * Decodes the real address out of a classic Joomla email.cloak
+     * script's "addyHASH" variable - which is built as one or more
+     * quoted-string-literal concatenations, e.g.
+     * `var addyXYZ = 'a&#64;' + 'b';` possibly followed by
+     * `addyXYZ = addyXYZ + '&#46;c';` continuation lines. Deliberately
+     * matches the quoted-string-literal sequence itself (not "everything
+     * up to the next semicolon"), because the numeric HTML entities
+     * inside those literals (e.g. "&#97;") themselves contain a literal
+     * ";" - naively scanning to the first ";" would cut the match short
+     * partway through an entity.
+     *
+     * @param   string  $scriptContent
+     * @param   string  $hash
+     *
+     * @return  string|null
+     */
+    private function decodeClassicCloak($scriptContent, $hash)
+    {
+        $varName = 'addy' . preg_quote($hash, '/');
+        $strSeq  = '((?:\s*\'(?:[^\'\\\\]|\\\\.)*\'\s*\+?)+)';
+
+        if (!preg_match('/\bvar\s+' . $varName . '\s*=\s*' . $strSeq . '\s*;/s', $scriptContent, $m)) {
+            return null;
+        }
+
+        $assembled = $this->extractConcatenatedStringLiterals($m[1]);
+
+        if (preg_match_all('/\b' . $varName . '\s*=\s*' . $varName . '\s*\+\s*' . $strSeq . '\s*;/s', $scriptContent, $mm)) {
+            foreach ($mm[1] as $rhs) {
+                $assembled .= $this->extractConcatenatedStringLiterals($rhs);
+            }
+        }
+
+        $decoded = html_entity_decode($assembled, ENT_QUOTES | ENT_HTML401, 'UTF-8');
+
+        return strpos($decoded, '@') !== false ? $decoded : null;
+    }
+
+    /**
+     * Extracts and concatenates every single-quoted string literal found
+     * in a JS expression fragment, e.g. `'a' + 'b' + 'c'` -> "abc".
+     *
+     * @param   string  $expr
+     *
+     * @return  string
+     */
+    private function extractConcatenatedStringLiterals($expr)
+    {
+        $result = '';
+
+        if (preg_match_all('/\'((?:[^\'\\\\]|\\\\.)*)\'/', $expr, $parts)) {
+            foreach ($parts[1] as $part) {
+                $result .= stripslashes($part);
+            }
+        }
+
+        return $result;
     }
 
     /**
