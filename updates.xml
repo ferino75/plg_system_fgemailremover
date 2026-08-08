@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <updates>
     <update>
-        <name>PLG_SYSTEM_FGEMAILREMOVER</name>
-        <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
+        <name>System - Email Remover (Joomla 3.10)</name>
+        <description>Removes email addresses (mailto: links and plain-text addresses) from the public HTML output, so they can never be harvested by spam scrapers. Text, HTML or generated-image replacement, with exceptions support.</description>
         <element>fgemailremover</element>
         <type>plugin</type>
         <folder>system</folder>
@@ -20,8 +20,8 @@
         <targetplatform name="joomla" version="3\.[0-9]+\.[0-9]+"/>
     </update>
     <update>
-        <name>PLG_SYSTEM_FGEMAILREMOVER</name>
-        <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
+        <name>System - Email Remover (Joomla 4-6)</name>
+        <description>Removes email addresses (mailto: links and plain-text addresses) from the public HTML output, so they can never be harvested by spam scrapers. Text, HTML or generated-image replacement, with exceptions support.</description>
         <element>fgemailremover</element>
         <type>plugin</type>
         <folder>system</folder>
