@@ -1,5 +1,12 @@
 # Changelog
 
+## joomla4-6/ v1.3.1 - 2026-08-08
++ Displayed plugin name changed to "System - FG Email Remover" (was "System - Email Remover"), for consistency with the GitHub repo/README/banner branding - updated in the language files and in updates.xml
+^ Removed the hard-coded "noshadow" default from the "Image CSS class" parameter (now defaults to empty) - it was specific to the maintainer's own site's shadow-removal need and had no business being a default for other installs; the internal `emailremover-img` class is still always added regardless
+
+## v1.10.1 - 2026-08-08
+Same two changes as joomla4-6/ v1.3.1 above, ported to this build
+
 ## joomla4-6/ v1.3.0 - 2026-08-08
 # Fixes generated `<img>` tags (image mode) getting stretched/enlarged and re-centred on some sites' mobile views - a site's generic responsive-image CSS or a third-party lazy-loading library reacting to a class like `lazy` in the "Image CSS class" parameter can resize an image with no explicit dimensions to fill its container. The `<img>` tag now carries HTML `width`/`height` attributes and matching fixed-pixel `width`/`height` plus `max-width:none` in its inline style (dimensions read back from the actual generated PNG via `getimagesize()`), which reliably overrides that kind of low-specificity external CSS
 

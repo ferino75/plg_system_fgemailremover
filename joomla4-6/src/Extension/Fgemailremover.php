@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.3.0
+ * @version     1.3.1
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -739,7 +739,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         }
 
         $alt      = $replacement !== '' ? $replacement : 'E-mailová adresa';
-        $cssClass = trim((string) $this->params->get('image_css_class', 'noshadow'));
+        $cssClass = trim((string) $this->params->get('image_css_class', ''));
         $classes  = 'emailremover-img' . ($cssClass !== '' ? ' ' . $cssClass : '');
         $width    = (int) $imageInfo['width'];
         $height   = (int) $imageInfo['height'];

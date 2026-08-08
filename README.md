@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner_jed.png" alt="plg_system_fgemailremover logo">
+  <img src="assets/logo.png" alt="plg_system_fgemailremover logo" width="128" height="128">
 </p>
 
 # plg_system_fgemailremover
@@ -39,7 +39,7 @@ The classic build deliberately avoids PHP namespaces and PSR-4 autoloading so it
 
 1. Download the release ZIP matching your Joomla version from the [Releases](https://github.com/ferino75/plg_system_fgemailremover/releases) page — the classic build's asset is named `plg_system_fgemailremover_vX.Y.Z.zip`, the native Joomla 4-6 build's is `plg_system_fgemailremover_j46_vX.Y.Z.zip`.
 2. Joomla admin → **Extensions → Manage → Install** → upload the ZIP.
-3. **Extensions → Plugins** → enable **System - Email Remover**.
+3. **Extensions → Plugins** → enable **System - FG Email Remover**.
 4. Configure replacement mode, exceptions, and (optionally) an image font under the plugin's Options tab.
 
 Once installed, Joomla will offer future updates automatically via **Extensions → Manage → Update** — this repo's `updates.xml` is wired up as the plugin's update server and lists both builds, so Joomla always offers the one matching the site's own Joomla version.
