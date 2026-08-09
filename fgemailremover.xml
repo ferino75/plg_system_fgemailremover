@@ -5,7 +5,7 @@
     <creationDate>August 2026</creationDate>
     <copyright>Copyright (C) 2026 Fero. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later</license>
-    <version>1.10.1</version>
+    <version>1.11.0</version>
     <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
 
     <updateservers>
@@ -73,6 +73,15 @@
                     label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_REPLACEMENT_LABEL"
                     description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_REPLACEMENT_DESC"
                     default=""
+                    showon="replacement_mode:text"
+                />
+                <field
+                    name="image_alt_text"
+                    type="text"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_IMAGE_ALT_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_IMAGE_ALT_DESC"
+                    default=""
+                    showon="replacement_mode:image"
                 />
                 <field
                     name="whitelist"

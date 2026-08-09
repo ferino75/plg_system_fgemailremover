@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.3.1
+ * @version     1.4.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -720,8 +720,14 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      * a class like "lazy" - inline pixel dimensions reliably win over
      * that kind of low-specificity external CSS.
      *
+     * Alt text comes from its own "image_alt_text" parameter (separate
+     * from "replacement_text", which is Text-mode-only and hidden via
+     * showon when in Image mode) - each mode's admin field is now shown
+     * only when relevant, instead of one field silently double-booked
+     * for two different jobs depending on the mode.
+     *
      * @param   string  $address      The real email address (for the image content).
-     * @param   string  $replacement  The configured text/HTML replacement (also used as image alt text).
+     * @param   string  $replacement  The configured Text-mode replacement (used as a fallback if image generation fails).
      * @param   string  $mode         "text" or "image".
      *
      * @return  string
@@ -738,7 +744,8 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
             return $replacement;
         }
 
-        $alt      = $replacement !== '' ? $replacement : 'E-mailová adresa';
+        $altText  = trim((string) $this->params->get('image_alt_text', ''));
+        $alt      = $altText !== '' ? $altText : 'E-mailová adresa';
         $cssClass = trim((string) $this->params->get('image_css_class', ''));
         $classes  = 'emailremover-img' . ($cssClass !== '' ? ' ' . $cssClass : '');
         $width    = (int) $imageInfo['width'];

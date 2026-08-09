@@ -1,5 +1,13 @@
 # Changelog
 
+## joomla4-6/ v1.4.0 - 2026-08-08
++ "Replacement text" field is now hidden in Image mode (`showon="replacement_mode:text"`) - it was previously always visible even though it had nothing to do with Image mode
++ New "Image alt text" field, shown only in Image mode, replacing the previous double-duty use of "Replacement text" as both the Text-mode substitution and the Image-mode alt text - each mode's admin field is now shown only when it's actually relevant, instead of one field silently serving two different jobs depending on the mode
+^ Existing installs: any previously-set "Replacement text" value used as alt text will need to be re-entered in the new "Image alt text" field - the two are no longer linked
+
+## v1.11.0 - 2026-08-08
+Same two changes as joomla4-6/ v1.4.0 above, ported to this build
+
 ## joomla4-6/ v1.3.1 - 2026-08-08
 + Displayed plugin name changed to "System - FG Email Remover" (was "System - Email Remover"), for consistency with the GitHub repo/README/banner branding - updated in the language files and in updates.xml
 ^ Removed the hard-coded "noshadow" default from the "Image CSS class" parameter (now defaults to empty) - it was specific to the maintainer's own site's shadow-removal need and had no business being a default for other installs; the internal `emailremover-img` class is still always added regardless
