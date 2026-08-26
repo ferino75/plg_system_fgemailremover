@@ -1,5 +1,17 @@
 # Changelog
 
+## joomla4-6/ v1.5.2 - 2026-08-09
+# The real fix for the broken Save/Save & Close buttons (v1.5.1's fix addressed a real-but-secondary issue and wasn't sufficient) - the "Audit mode" field's *label* text (not its description) contained literal `<script>`/`<style>` substrings: "Audit mode (report addresses inside <script>/<style>)". Unlike the field description (rendered inside an HTML attribute, and correctly escaped there), Joomla 3.10 renders a field's label as raw, unescaped HTML content - so the browser parsed the literal `<script>` in the label as an actual opening script tag, swallowing an unpredictable amount of the subsequent page markup (very plausibly including the form's own hidden `task` input) as script content. Confirmed directly from a captured page source showing exactly that. Reworded the label to remove the angle brackets entirely, in both languages, in both builds
+
+## v1.12.2 - 2026-08-09
+Same fix as joomla4-6/ v1.5.2 above, ported to this build
+
+## joomla4-6/ v1.5.1 - 2026-08-09
+# Fixes the plugin's own admin Options form becoming unusable on Joomla 3.10 (Save/Save & Close buttons silently did nothing) - the "Audit mode" field's description text (added in v1.5.0/v1.12.0) contained literal embedded double-quote characters (`..."Scope of protection"...`). When rendered into an HTML attribute (e.g. a tooltip's `title="..."`), those quotes prematurely closed the attribute and corrupted the surrounding markup, breaking the page's JS enough to disable the toolbar buttons. Reworded to avoid embedded quotes entirely, in both languages, in both builds - nothing else about audit mode changed
+
+## v1.12.1 - 2026-08-09
+Same fix as joomla4-6/ v1.5.1 above, ported to this build
+
 ## joomla4-6/ v1.5.0 - 2026-08-09
 + `<script type="application/ld+json">` blocks are no longer skipped untouched like other `<script>` content - they're structured data, not executable code, so they're safely `json_decode()`d, cleaned of matching email addresses in any string value (respecting the whitelist), and `json_encode()`d back. Invalid/malformed JSON is left byte-for-byte unchanged rather than risk corrupting it. Replacement is always plain text (the "replacement_text" parameter) regardless of the configured mode, since an `<img>` tag has no meaning inside JSON
 + New optional "Audit mode" parameter - when enabled, logs a warning to `logs/plg_system_fgemailremover_audit.php` whenever an address is found inside an ordinary (non-JSON-LD) `<script>` or `<style>` block that the plugin deliberately leaves untouched, without ever modifying that content itself
