@@ -5,9 +5,10 @@
 # FG Email Remover plugin for Joomla
 
 ![Version](https://img.shields.io/github/v/release/ferino75/plg_system_fgemailremover?label=version)
-![License](https://img.shields.io/badge/license-GPL--2.0-blue)
 ![Joomla](https://img.shields.io/badge/Joomla-3.10%20--%206-orange)
 ![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)
+[![JED](https://img.shields.io/badge/Joomla!%20Extensions%20Directory%E2%84%A2-EmailRemover-blue)](https://extensions.joomla.org/extension/access-a-security/site-security/email-remover/)
+![License](https://img.shields.io/badge/license-GPL--2.0-green)
 ![Downloads](https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total?cacheSeconds=3600)
 
 A Joomla **system plugin** that strips email addresses out of the public-facing HTML output of a site, so they can never be scraped by spam harvesters — because they simply never reach the page in the first place.

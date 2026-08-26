@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.11.0
+ * @version     1.11.1
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -51,9 +51,12 @@ class PlgSystemFgemailremover extends JPlugin
     {
         $app = JFactory::getApplication();
 
-        // Only ever touch the public front-end - never the admin area,
-        // so editors can still see/edit real addresses in the backend.
-        if ($app->isClient('administrator')) {
+        // Only ever touch the public front-end - never the admin area
+        // (so editors can still see/edit real addresses in the
+        // backend), and never any other application client (API, CLI,
+        // or anything else Joomla may add) - an explicit allowlist on
+        // "site" is more precise than merely excluding "administrator".
+        if (!$app->isClient('site')) {
             return;
         }
 

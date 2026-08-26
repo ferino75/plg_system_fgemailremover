@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.4.1 - 2026-08-09
+^ Front-end-only guard tightened from `if ($app->isClient('administrator')) return;` to `if (!$app->isClient('site')) return;` - the previous denylist form only excluded the admin area, so any other application client Joomla might dispatch `onAfterRender` to (API, CLI, or future client types) would have been processed as if it were the public site. An explicit allowlist on "site" matches the plugin's own "front-end only" intent precisely instead of by exclusion. (The separate `$document->getType() !== 'html'` check, which already guards against non-HTML responses like JSON/XML/RSS regardless of client, was already in place and is unchanged.)
+
+## v1.11.1 - 2026-08-09
+Same change as joomla4-6/ v1.4.1 above, ported to this build
+
 ## joomla4-6/ v1.4.0 - 2026-08-08
 + "Replacement text" field is now hidden in Image mode (`showon="replacement_mode:text"`) - it was previously always visible even though it had nothing to do with Image mode
 + New "Image alt text" field, shown only in Image mode, replacing the previous double-duty use of "Replacement text" as both the Text-mode substitution and the Image-mode alt text - each mode's admin field is now shown only when it's actually relevant, instead of one field silently serving two different jobs depending on the mode
