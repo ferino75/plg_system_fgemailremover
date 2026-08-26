@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.5.2
+ * @version     1.6.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -51,18 +51,24 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
     private $emailRegex = '/[a-zA-Z0-9.\_%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/';
 
     /**
-     * Matches only the OPENING <a ... href="mailto:..."> tag, up to and
-     * including the tag's closing ">". Deliberately bounded (cannot span
-     * past the next ">" or the matching quote), unlike matching the whole
-     * <a>...</a> element with a DOTALL lazy wildcard, which on a page with
-     * many <a> tags can exceed PHP's PCRE backtrack limit and make
-     * preg_replace_callback() silently fail. The corresponding closing
-     * </a> is located separately with plain strpos() - see
-     * stripMailtoLinks().
+     * Matches only the OPENING <a ... href="mailto:...">, up to and
+     * including the tag's own closing ">". Deliberately bounded (cannot
+     * span past the tag's own end or the matching quote), unlike
+     * matching the whole <a>...</a> element with a DOTALL lazy wildcard,
+     * which on a page with many <a> tags can exceed PHP's PCRE
+     * backtrack limit and make preg_replace_callback() silently fail.
+     * The alternation `(?:[^>"\']|"[^"]*"|'[^']*')*` (rather than a
+     * plain `[^>]*`) between attributes correctly treats a ">" inside a
+     * quoted attribute value - e.g. <a data-check="a > b" href="mailto:
+     * ...">  - as part of that attribute, not the tag's own end; each
+     * alternative consumes at least one character so this stays a
+     * bounded, linear-time match, not a backtracking risk. The
+     * corresponding closing </a> is located separately with plain
+     * stripos() - see stripMailtoLinks().
      *
      * @var string
      */
-    private $mailtoOpenTagRegex = '#<a\b[^>]*\bhref\s*=\s*(["\'])mailto:([^"\']*)\1[^>]*>#i';
+    private $mailtoOpenTagRegex = '#<a\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*\bhref\s*=\s*(["\'])mailto:([^"\']*)\1(?:[^>"\']|"[^"]*"|\'[^\']*\')*>#i';
 
     /**
      * @return  array
@@ -217,9 +223,18 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
 
     /**
      * Finds the next <script>...</script> or <style>...</style> block at
-     * or after byte offset $from, using plain string search only - no
-     * regex, so there is no backtracking cost regardless of how many such
-     * blocks the page contains.
+     * or after byte offset $from. Uses findTagNameStart() (not a naive
+     * substring search) so a custom-element tag that merely starts with
+     * the same letters - e.g. <scripture> or <style-guide> - is never
+     * mistaken for a real <script>/<style> tag, and findTagEnd() (not a
+     * naive search for the next ">") so a ">" inside a quoted attribute
+     * value - e.g. <script data-check="a > b"> - is never mistaken for
+     * the tag's own closing ">". Both helpers are small, bounded,
+     * single-pass scans - not a full HTML parser, but enough to avoid
+     * misreading the tag boundary in either of those two ways. Getting
+     * this wrong is not a cosmetic issue: it can make the rest of the
+     * whole document look like it's still "inside" the skip block,
+     * silently disabling email removal for everything after it.
      *
      * @param   string  $html
      * @param   int     $from
@@ -228,8 +243,8 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      */
     private function findNextSkipBlock($html, $from)
     {
-        $scriptStart = stripos($html, '<script', $from);
-        $styleStart  = stripos($html, '<style', $from);
+        $scriptStart = $this->findTagNameStart($html, 'script', $from);
+        $styleStart  = $this->findTagNameStart($html, 'style', $from);
 
         if ($scriptStart === false && $styleStart === false) {
             return null;
@@ -243,7 +258,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
             $start = $styleStart;
         }
 
-        $tagOpenEnd = strpos($html, '>', $start);
+        $tagOpenEnd = $this->findTagEnd($html, $start);
 
         if ($tagOpenEnd === false) {
             // Malformed - no closing ">" for the opening tag itself;
@@ -260,6 +275,84 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         }
 
         return [$start, $closeTag + strlen('</' . $tag . '>')];
+    }
+
+    /**
+     * Finds the next occurrence of an opening "<$tagName" at a genuine
+     * tag-name boundary - i.e. immediately followed by whitespace, ">",
+     * "/", or the end of the string - starting at or after byte offset
+     * $from. A plain stripos() for "<script" would also match the start
+     * of "<scripture>" or "<script-runner>" (a plausible custom-element
+     * name); this rejects those and keeps searching past them.
+     *
+     * @param   string  $html
+     * @param   string  $tagName  Lowercase, without "<".
+     * @param   int     $from
+     *
+     * @return  int|false
+     */
+    private function findTagNameStart($html, $tagName, $from)
+    {
+        $needle    = '<' . $tagName;
+        $needleLen = strlen($needle);
+        $length    = strlen($html);
+        $pos       = $from;
+
+        while (($pos = stripos($html, $needle, $pos)) !== false) {
+            $next     = $pos + $needleLen;
+            $nextChar = $next < $length ? $html[$next] : '';
+
+            if ($nextChar === '' || $nextChar === '>' || $nextChar === '/' || ctype_space($nextChar)) {
+                return $pos;
+            }
+
+            // Not a real boundary (e.g. "<scripture", "<script-runner")
+            // - keep searching from just past this false match.
+            $pos++;
+        }
+
+        return false;
+    }
+
+    /**
+     * Finds the byte offset of the ">" that actually terminates an
+     * opening HTML tag starting at $start (which must point at the
+     * tag's leading "<"), correctly skipping over any ">" that appears
+     * inside a single- or double-quoted attribute value - e.g.
+     * <div title="a > b"> - rather than naively stopping at the first
+     * ">" found anywhere after $start. A small, bounded, single-pass
+     * scan - not a full HTML parser, but enough to never misidentify an
+     * attribute's own ">" as the tag boundary.
+     *
+     * @param   string  $html
+     * @param   int     $start
+     *
+     * @return  int|false
+     */
+    private function findTagEnd($html, $start)
+    {
+        $length = strlen($html);
+        $quote  = null;
+
+        for ($i = $start; $i < $length; $i++) {
+            $ch = $html[$i];
+
+            if ($quote !== null) {
+                if ($ch === $quote) {
+                    $quote = null;
+                }
+
+                continue;
+            }
+
+            if ($ch === '"' || $ch === "'") {
+                $quote = $ch;
+            } elseif ($ch === '>') {
+                return $i;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -290,15 +383,22 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      */
     private function processSkipBlock($blockHtml, $replacement)
     {
-        if (preg_match('/^<script\b[^>]*\btype\s*=\s*(["\'])application\/ld\+json\1[^>]*>/i', $blockHtml, $m)) {
-            $openTagLen  = strlen($m[0]);
-            $closeTagPos = stripos($blockHtml, '</script>', $openTagLen);
+        if (stripos($blockHtml, '<script') === 0) {
+            $openTagEnd = $this->findTagEnd($blockHtml, 0);
 
-            if ($closeTagPos !== false) {
-                $jsonText    = substr($blockHtml, $openTagLen, $closeTagPos - $openTagLen);
-                $cleanedJson = $this->processJsonLdScript($jsonText, $replacement);
+            if ($openTagEnd !== false) {
+                $openTag = substr($blockHtml, 0, $openTagEnd + 1);
 
-                return $m[0] . $cleanedJson . substr($blockHtml, $closeTagPos);
+                if (preg_match('/\btype\s*=\s*(["\'])application\/ld\+json\1/i', $openTag)) {
+                    $closeTagPos = stripos($blockHtml, '</script>', $openTagEnd);
+
+                    if ($closeTagPos !== false) {
+                        $jsonText    = substr($blockHtml, $openTagEnd + 1, $closeTagPos - $openTagEnd - 1);
+                        $cleanedJson = $this->processJsonLdScript($jsonText, $replacement);
+
+                        return $openTag . $cleanedJson . substr($blockHtml, $closeTagPos);
+                    }
+                }
             }
         }
 
@@ -474,7 +574,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         $length = strlen($html);
 
         while (($tagStart = stripos($html, '<joomla-hidden-mail', $offset)) !== false) {
-            $tagOpenEnd = strpos($html, '>', $tagStart);
+            $tagOpenEnd = $this->findTagEnd($html, $tagStart);
 
             if ($tagOpenEnd === false) {
                 // Malformed - no closing ">" for the opening tag itself;
@@ -577,7 +677,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         $length = strlen($html);
 
         while (($spanStart = stripos($html, '<span id="cloak', $offset)) !== false) {
-            $spanOpenEnd = strpos($html, '>', $spanStart);
+            $spanOpenEnd = $this->findTagEnd($html, $spanStart);
 
             if ($spanOpenEnd === false) {
                 $result .= substr($html, $offset);
@@ -608,7 +708,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
 
             // The matching <script> block should follow shortly after
             // (allow a little slack for whitespace between them).
-            $scriptStart = stripos($html, '<script', $spanEnd);
+            $scriptStart = $this->findTagNameStart($html, 'script', $spanEnd);
 
             if ($scriptStart === false || $scriptStart - $spanEnd > 50) {
                 $result .= substr($html, $offset, $spanEnd - $offset);
@@ -616,7 +716,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
                 continue;
             }
 
-            $scriptOpenEnd  = strpos($html, '>', $scriptStart);
+            $scriptOpenEnd  = $this->findTagEnd($html, $scriptStart);
             $scriptClosePos = $scriptOpenEnd !== false ? stripos($html, '</script>', $scriptOpenEnd) : false;
 
             if ($scriptOpenEnd === false || $scriptClosePos === false) {

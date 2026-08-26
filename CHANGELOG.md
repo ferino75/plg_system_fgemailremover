@@ -1,5 +1,13 @@
 # Changelog
 
+## joomla4-6/ v1.6.0 - 2026-08-09
+# Fixes two related tag-boundary weaknesses in the skip-block scanner (`findNextSkipBlock()`) and everywhere else the same naive patterns were used: (1) a plain `stripos($html, '<script')`/`'<style'` also matches the start of a longer tag/custom-element name that merely begins with the same letters - e.g. `<scripture>` or `<style-guide>` - which could then send the scanner looking for a matching `</script>`/`</style>` that never arrives, causing the *entire rest of the page* to be silently treated as an unprocessed skip block; (2) a plain search for the next `">"` to find an opening tag's end can land on a `">"` that's actually inside a quoted attribute value - e.g. `<script data-check="a > b">` - misreading the tag boundary
++ Adds two small, bounded, single-pass helper scans - `findTagNameStart()` (validates the character immediately after the matched tag name is a real boundary: whitespace, `>`, `/`, or end of string) and `findTagEnd()` (tracks quote state so a `">"` inside `"..."`/`'...'` is never mistaken for the tag's own end) - and applies them everywhere the plugin was previously doing a naive `stripos()`/`strpos()` for a tag name or its closing `">"`: `findNextSkipBlock()`, the classic-cloak span/script detection, the JSON-LD script-tag detection, and (Joomla 4-6 build only) the `<joomla-hidden-mail>` detection
+^ The `mailtoOpenTagRegex` pattern had the same underlying weakness hidden inside a `[^>]*` regex fragment - upgraded to a quote-aware alternation, `(?:[^>"\']|"[^"]*"|'[^']*')*`, that treats a `">"` inside a quoted attribute as part of that attribute rather than the tag's end, while remaining a bounded, non-backtracking pattern
+
+## v1.13.0 - 2026-08-09
+Same fixes as joomla4-6/ v1.6.0 above, ported to this build
+
 ## joomla4-6/ v1.5.2 - 2026-08-09
 # The real fix for the broken Save/Save & Close buttons (v1.5.1's fix addressed a real-but-secondary issue and wasn't sufficient) - the "Audit mode" field's *label* text (not its description) contained literal `<script>`/`<style>` substrings: "Audit mode (report addresses inside <script>/<style>)". Unlike the field description (rendered inside an HTML attribute, and correctly escaped there), Joomla 3.10 renders a field's label as raw, unescaped HTML content - so the browser parsed the literal `<script>` in the label as an actual opening script tag, swallowing an unpredictable amount of the subsequent page markup (very plausibly including the form's own hidden `task` input) as script content. Confirmed directly from a captured page source showing exactly that. Reworded the label to remove the angle brackets entirely, in both languages, in both builds
 
