@@ -1,5 +1,13 @@
 # Changelog
 
+## joomla4-6/ v1.5.0 - 2026-08-09
++ `<script type="application/ld+json">` blocks are no longer skipped untouched like other `<script>` content - they're structured data, not executable code, so they're safely `json_decode()`d, cleaned of matching email addresses in any string value (respecting the whitelist), and `json_encode()`d back. Invalid/malformed JSON is left byte-for-byte unchanged rather than risk corrupting it. Replacement is always plain text (the "replacement_text" parameter) regardless of the configured mode, since an `<img>` tag has no meaning inside JSON
++ New optional "Audit mode" parameter - when enabled, logs a warning to `logs/plg_system_fgemailremover_audit.php` whenever an address is found inside an ordinary (non-JSON-LD) `<script>` or `<style>` block that the plugin deliberately leaves untouched, without ever modifying that content itself
+^ README gets a new "Scope of protection" section spelling out plainly that literal addresses hard-coded into ordinary `<script>` JS or `<style>` CSS are *not* covered, and why - this was previously true but undocumented, which overstated what "emails never reach the page" actually covers
+
+## v1.12.0 - 2026-08-09
+Same two features (JSON-LD handling, audit mode) and the README documentation update, ported to this build
+
 ## joomla4-6/ v1.4.1 - 2026-08-09
 ^ Front-end-only guard tightened from `if ($app->isClient('administrator')) return;` to `if (!$app->isClient('site')) return;` - the previous denylist form only excluded the admin area, so any other application client Joomla might dispatch `onAfterRender` to (API, CLI, or future client types) would have been processed as if it were the public site. An explicit allowlist on "site" matches the plugin's own "front-end only" intent precisely instead of by exclusion. (The separate `$document->getType() !== 'html'` check, which already guards against non-HTML responses like JSON/XML/RSS regardless of client, was already in place and is unchanged.)
 

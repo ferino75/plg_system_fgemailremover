@@ -5,7 +5,7 @@
     <creationDate>August 2026</creationDate>
     <copyright>Copyright (C) 2026 Fero. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later</license>
-    <version>1.4.1</version>
+    <version>1.5.0</version>
     <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
 
     <namespace path="src">FG\Plugin\System\Fgemailremover</namespace>
@@ -101,6 +101,17 @@
                     class="btn-group btn-group-yesno"
                     label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_LOG_TIMING_LABEL"
                     description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_LOG_TIMING_DESC"
+                    default="0"
+                >
+                    <option value="1">JYES</option>
+                    <option value="0">JNO</option>
+                </field>
+                <field
+                    name="audit_mode"
+                    type="radio"
+                    class="btn-group btn-group-yesno"
+                    label="PLG_SYSTEM_FGEMAILREMOVER_FIELD_AUDIT_MODE_LABEL"
+                    description="PLG_SYSTEM_FGEMAILREMOVER_FIELD_AUDIT_MODE_DESC"
                     default="0"
                 >
                     <option value="1">JYES</option>

@@ -27,14 +27,16 @@ The classic build deliberately avoids PHP namespaces and PSR-4 autoloading so it
 ## Features
 
 - Strips both `mailto:` links and plain-text email addresses from the rendered front-end HTML — never touches the administrator area or outbound system mail
+- Also detects and cleans both of Joomla core's own email-cloaking mechanisms (the classic `email.cloak` span+script construct, and Joomla 5/6's newer `<joomla-hidden-mail>` web component) — neither ever contains a literal address in the raw HTML, so a generic scraper wouldn't normally need help there, but the plugin removes them too for consistency
 - Three replacement modes:
   - **Remove** (empty replacement)
   - **Text/HTML** — any custom text or markup (e.g. a link to a contact form)
   - **Image (PNG)** — renders the address as pixels via GD, with the built-in bitmap font or your own uploaded `.ttf`/`.otf` font; generated images are cached per unique address and reused on subsequent requests
 - **Exceptions list** — keep specific addresses or whole domains untouched (e.g. a legally-required GDPR contact address), by exact address or `@domain.tld`
 - **Attribute-safe** — automatically detects when a match sits inside an HTML tag's attribute value (e.g. a `<meta>` description or a `title="..."`) and always removes it as plain text there, regardless of the configured mode, so it can never corrupt the surrounding markup
+- **JSON-LD aware** — `<script type="application/ld+json">` structured-data blocks are decoded as JSON and cleaned safely, rather than skipped like other `<script>` content (see "Scope of protection" below)
 - Linear-time, backtracking-safe HTML scanning throughout (`strpos`/`stripos`-based), so it stays fast and reliable even on large, complex pages and on hosts with a low `pcre.backtrack_limit`
-- Optional processing-time logging for performance diagnostics (`logs/plg_system_fgemailremover.php`)
+- Optional processing-time logging for performance diagnostics (`logs/plg_system_fgemailremover.php`), and an optional audit mode that reports (without ever modifying) addresses left untouched inside `<script>`/`<style>` content (`logs/plg_system_fgemailremover_audit.php`)
 
 ## Installation
 
@@ -50,12 +52,23 @@ Once installed, Joomla will offer future updates automatically via **Extensions 
 | Setting | What it does |
 |---|---|
 | Replacement mode | Text or Image (PNG) |
-| Replacement text | Text/HTML used in Text mode, and as the image `alt` text in Image mode |
-| Image CSS class | Extra CSS class(es) on the generated `<img>` tag (default `noshadow`) |
+| Replacement text | Text/HTML used in Text mode (shown only in Text mode) |
+| Image alt text | `alt` attribute text for the generated image (shown only in Image mode; defaults to a generic "email address" string if left empty) |
+| Image CSS class | Extra CSS class(es) on the generated `<img>` tag, added alongside the always-present `emailremover-img` class (empty by default) |
 | TTF font path | Path to a `.ttf`/`.otf` file to render the image with a real font instead of GD's built-in bitmap font |
 | Font size | Point size for the TTF font |
 | Exceptions | Addresses or `@domain.tld` entries to leave untouched |
-| Log processing time | Writes per-request timing/size diagnostics to the Joomla log |
+| Log processing time | Writes per-request timing/size diagnostics to `logs/plg_system_fgemailremover.php` |
+| Audit mode | Writes a warning to `logs/plg_system_fgemailremover_audit.php` whenever an address is left untouched inside `<script>`/`<style>` content - see "Scope of protection" below. Never modifies anything itself |
+
+## Scope of protection
+
+This plugin parses the page as HTML — it does not parse or execute JavaScript, and does not parse CSS. In practice that means:
+
+- **Covered**: the visible HTML body, `mailto:` links, HTML attribute values (e.g. `<meta>` descriptions), both of Joomla core's own cloaking mechanisms, and `<script type="application/ld+json">` blocks (parsed and cleaned safely as JSON, not as arbitrary script content).
+- **Not covered, by design**: a literal address inside ordinary `<script>` JavaScript (e.g. `const contact = 'info@example.com';`) or inside `<style>` CSS (e.g. `content: "info@example.com";`) is left completely untouched.
+
+This is a deliberate trade-off, not an oversight: safely rewriting arbitrary third-party JavaScript or CSS without ever risking breaking it is not something a general-purpose regex/string-scanning plugin can guarantee — the risk of corrupting site behaviour would outweigh the benefit. If your site has an address hard-coded into a `<script>` or `<style>` block, remove it there directly, or enable **Audit mode** to have the plugin tell you (via the Joomla log) exactly where that's happening, without changing anything itself.
 
 ## Why remove instead of cloak?
 

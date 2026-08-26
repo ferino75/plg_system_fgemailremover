@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.4.1
+ * @version     1.5.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -204,8 +204,10 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
             // Process (and strip emails from) everything before the skip block.
             $out .= $this->stripEmails(substr($html, $pos, $skipStart - $pos), $replacement, $mode);
 
-            // Copy the <script>/<style> block itself untouched.
-            $out .= substr($html, $skipStart, $skipEnd - $skipStart);
+            // <script>/<style> content itself is not parsed as HTML - see
+            // processSkipBlock() for the one safe exception (JSON-LD) and
+            // the optional audit-only reporting for everything else.
+            $out .= $this->processSkipBlock(substr($html, $skipStart, $skipEnd - $skipStart), $replacement);
 
             $pos = $skipEnd;
         }
@@ -258,6 +260,163 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         }
 
         return [$start, $closeTag + strlen('</' . $tag . '>')];
+    }
+
+    /**
+     * Decides what happens to a <script>/<style> block that the general
+     * HTML scanning in processBuffer() treats as opaque (never parsed as
+     * HTML, to avoid ever risking corruption of arbitrary third-party JS
+     * or CSS - see the README's "Scope of protection" section for why).
+     *
+     * One narrow, deliberate exception: a <script type="application/
+     * ld+json"> block is structured data, not executable code - safe to
+     * json_decode(), clean matching email addresses out of its string
+     * values, and json_encode() back, with zero risk of corrupting page
+     * behaviour. Any address inside is always replaced with plain text
+     * (the "replacement_text" parameter) regardless of the configured
+     * replacement mode - an <img> tag has no meaning inside JSON.
+     *
+     * Everything else (ordinary <script> JS, <style> CSS) is left
+     * completely untouched - by design, not oversight. When the
+     * "audit_mode" parameter is enabled, such blocks are only ever
+     * inspected for logging purposes (a warning naming the page URL,
+     * written to logs/plg_system_fgemailremover_audit.php) - never
+     * modified.
+     *
+     * @param   string  $blockHtml    The full <script>...</script> or <style>...</style> block, tags included.
+     * @param   string  $replacement  The configured Text-mode replacement.
+     *
+     * @return  string
+     */
+    private function processSkipBlock($blockHtml, $replacement)
+    {
+        if (preg_match('/^<script\b[^>]*\btype\s*=\s*(["\'])application\/ld\+json\1[^>]*>/i', $blockHtml, $m)) {
+            $openTagLen  = strlen($m[0]);
+            $closeTagPos = stripos($blockHtml, '</script>', $openTagLen);
+
+            if ($closeTagPos !== false) {
+                $jsonText    = substr($blockHtml, $openTagLen, $closeTagPos - $openTagLen);
+                $cleanedJson = $this->processJsonLdScript($jsonText, $replacement);
+
+                return $m[0] . $cleanedJson . substr($blockHtml, $closeTagPos);
+            }
+        }
+
+        if ((bool) $this->params->get('audit_mode', 0)) {
+            $this->auditSkipBlock($blockHtml);
+        }
+
+        return $blockHtml;
+    }
+
+    /**
+     * Safely removes email addresses from a <script type="application/
+     * ld+json"> block's JSON content - decode, walk every string value,
+     * replace matching addresses (respecting the whitelist), re-encode.
+     * If the content isn't valid JSON, it's returned byte-for-byte
+     * unchanged rather than risk corrupting it.
+     *
+     * @param   string  $jsonText     The script's raw text content (no tags).
+     * @param   string  $replacement  The configured Text-mode replacement.
+     *
+     * @return  string
+     */
+    private function processJsonLdScript($jsonText, $replacement)
+    {
+        $data = json_decode($jsonText, true);
+
+        if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+            return $jsonText;
+        }
+
+        $changed = false;
+        $data    = $this->stripEmailsFromJsonValue($data, $replacement, $changed);
+
+        if (!$changed) {
+            return $jsonText;
+        }
+
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return $encoded === false ? $jsonText : $encoded;
+    }
+
+    /**
+     * Recursively walks a decoded JSON value, replacing any email
+     * address found in a string value (unless whitelisted). Sets
+     * $changed to true if anything was actually replaced, so the caller
+     * can skip re-encoding (and its side effects, like key reordering
+     * or whitespace changes) when nothing needed to change.
+     *
+     * @param   mixed   $value
+     * @param   string  $replacement
+     * @param   bool    $changed  Passed by reference.
+     *
+     * @return  mixed
+     */
+    private function stripEmailsFromJsonValue($value, $replacement, &$changed)
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = $this->stripEmailsFromJsonValue($item, $replacement, $changed);
+            }
+
+            return $value;
+        }
+
+        if (is_string($value) && strpos($value, '@') !== false) {
+            $new = preg_replace_callback($this->emailRegex, function ($m) use ($replacement, &$changed) {
+                if ($this->isWhitelisted($m[0])) {
+                    return $m[0];
+                }
+
+                $changed = true;
+
+                return $replacement;
+            }, $value);
+
+            if ($new !== null) {
+                return $new;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * Writes one warning line to logs/plg_system_fgemailremover_audit.php
+     * when a <script>/<style> block that the plugin deliberately never
+     * modifies appears to contain an email address - only called when
+     * the "audit_mode" parameter is enabled. Purely informational: never
+     * changes the block's content.
+     *
+     * @param   string  $blockHtml
+     *
+     * @return  void
+     */
+    private function auditSkipBlock($blockHtml)
+    {
+        if (strpos($blockHtml, '@') === false) {
+            return;
+        }
+
+        $tag = stripos($blockHtml, '<style') === 0 ? 'style' : 'script';
+
+        Log::addLogger(
+            ['text_file' => 'plg_system_fgemailremover_audit.php'],
+            Log::WARNING,
+            ['emailremover_audit']
+        );
+
+        Log::add(
+            sprintf(
+                'Possible email address left untouched inside a <%s> block (not parsed by design - see README) on %s',
+                $tag,
+                Uri::getInstance()->toString()
+            ),
+            Log::WARNING,
+            'emailremover_audit'
+        );
     }
 
     /**
