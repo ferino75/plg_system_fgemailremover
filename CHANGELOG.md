@@ -1,5 +1,12 @@
 # Changelog
 
+## joomla4-6/ v1.7.2 - 2026-08-09
+# Fixes whitelist matching for a `mailto:` link listing multiple comma-separated recipients (RFC 6068 - e.g. `mailto:a@x.sk,b@y.sk`) - previously checked as one literal string against the whitelist, which essentially never matched even when every individual address was whitelisted, so such links always got replaced. `isWhitelisted()` now splits on "," (safe unconditionally - a single valid address can never itself contain a literal comma) and requires *every* individual address to be whitelisted for the whole link to be left untouched; if even one recipient isn't, the link is still replaced, since leaving it would expose that address
+^ Verified the other suspected gaps from the same review - case sensitivity, a trailing "." after an address in prose, and `mailto:` URL-encoding (`%40` for "@") - were already handled correctly (case-folding, the email regex's own boundary, and the existing `rawurldecode()` call respectively); no changes needed there. A mailto: URI has no display-name concept to normalise (RFC 6068) - the visible link text is separate from the href value entirely
+
+## v1.14.2 - 2026-08-09
+Same fix as joomla4-6/ v1.7.2 above, ported to this build
+
 ## joomla4-6/ v1.7.1 - 2026-08-09
 # Hardens `stripMailtoLinks()` against two remaining gaps: (1) unquoted `href` values - e.g. `<a href=mailto:info@x.sk>`, valid HTML5 - were not matched at all, leaving the address in the page's `href`; the matching regex now accepts both quoted and unquoted forms; (2) a mailto: address followed by extra headers - e.g. `<a href="mailto:info@x.sk?subject=Hello&body=...">` - was treated as if the whole `info@x.sk?subject=Hello&body=...` string were the address, which could defeat whitelist matching and leaked the query string into image-mode alt text; the query string is now stripped before the address is used for either purpose (detection/removal of the link itself was never affected either way - the whole `<a>` was always replaced)
 ^ Re-verified: a fake `href='mailto:...'` sitting inside an unrelated attribute's own quoted value (e.g. `data-note="href='mailto:fake@x'"`) is correctly *not* matched as a real href - confirmed this was already safe after the v1.6.0 tag-boundary hardening, no change needed there

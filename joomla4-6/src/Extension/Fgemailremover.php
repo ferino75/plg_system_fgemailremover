@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.7.1
+ * @version     1.7.2
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -1282,6 +1282,15 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      * Checks whether an email address is exempt from removal, either as an
      * exact address match or via a whole-domain entry (e.g. "@example.sk").
      *
+     * A mailto: URI can list multiple recipients separated by commas
+     * per RFC 6068 - e.g. "mailto:a@x.sk,b@y.sk" - and a single valid
+     * email address can never itself contain a literal comma, so
+     * splitting on "," is always safe. When $email contains one or
+     * more commas, every individual address must be whitelisted for
+     * the whole thing to count as whitelisted - if even one recipient
+     * isn't, the link is still replaced (leaving it untouched would
+     * expose that address).
+     *
      * @param   string  $email
      *
      * @return  bool
@@ -1292,6 +1301,16 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
 
         if (!$whitelist) {
             return false;
+        }
+
+        if (strpos($email, ',') !== false) {
+            foreach (explode(',', $email) as $part) {
+                if (!$this->isWhitelisted(trim($part))) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         $email  = mb_strtolower(trim($email));
