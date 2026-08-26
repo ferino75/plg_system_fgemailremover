@@ -1,5 +1,12 @@
 # Changelog
 
+## joomla4-6/ v1.7.0 - 2026-08-09
+# Loosens the classic email.cloak `<span id="cloakHASH">` detection, which previously assumed one exact serialisation - `<span id="cloak` as a fixed literal substring (double quotes, "id" as the first/only attribute, no space around "="). While that's what Joomla core's own `email.cloak` helper always emits (verified against a real captured page), assuming one exact form was needlessly fragile. Now matches `id="cloakHASH"` (or `id='cloakHASH'`) anywhere within the span's attributes, in either quote style, regardless of what other attributes come before it - e.g. `<span class="contact" id="cloakABC">` or `<span id='cloakABC'>` are now both recognised
+^ The early-exit check (`stripos($buffer, 'id="cloak')`) had the same rigidity - loosened to just `stripos($buffer, 'cloak')`, since a page whose *only* email content was one of the now-newly-recognised span variants would otherwise still have been skipped entirely before ever reaching the (already-fixed) detection itself
+
+## v1.14.0 - 2026-08-09
+Same fix as joomla4-6/ v1.7.0 above, ported to this build
+
 ## joomla4-6/ v1.6.0 - 2026-08-09
 # Fixes two related tag-boundary weaknesses in the skip-block scanner (`findNextSkipBlock()`) and everywhere else the same naive patterns were used: (1) a plain `stripos($html, '<script')`/`'<style'` also matches the start of a longer tag/custom-element name that merely begins with the same letters - e.g. `<scripture>` or `<style-guide>` - which could then send the scanner looking for a matching `</script>`/`</style>` that never arrives, causing the *entire rest of the page* to be silently treated as an unprocessed skip block; (2) a plain search for the next `">"` to find an opening tag's end can land on a `">"` that's actually inside a quoted attribute value - e.g. `<script data-check="a > b">` - misreading the tag boundary
 + Adds two small, bounded, single-pass helper scans - `findTagNameStart()` (validates the character immediately after the matched tag name is a real boundary: whitespace, `>`, `/`, or end of string) and `findTagEnd()` (tracks quote state so a `">"` inside `"..."`/`'...'` is never mistaken for the tag's own end) - and applies them everywhere the plugin was previously doing a naive `stripos()`/`strpos()` for a tag name or its closing `">"`: `findNextSkipBlock()`, the classic-cloak span/script detection, the JSON-LD script-tag detection, and (Joomla 4-6 build only) the `<joomla-hidden-mail>` detection

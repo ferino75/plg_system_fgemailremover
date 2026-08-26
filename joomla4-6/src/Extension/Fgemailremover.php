@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.6.0
+ * @version     1.7.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -113,11 +113,15 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         // component (base64-encoded attributes) and the classic
         // email.cloak span+script (numeric-HTML-entity-encoded JS
         // string concatenation, where "@" is always the five-character
-        // "&#64;", never the byte itself).
+        // "&#64;", never the byte itself). Just "cloak" rather than a
+        // specific "id=\"cloak" substring, since the real detection in
+        // stripClassicCloakElements() is lenient about attribute order
+        // and quote style - this early check only needs to avoid false
+        // negatives, not be precise.
         if (
             strpos($buffer, '@') === false
             && stripos($buffer, '<joomla-hidden-mail') === false
-            && stripos($buffer, 'id="cloak') === false
+            && stripos($buffer, 'cloak') === false
         ) {
             return;
         }
@@ -659,10 +663,18 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
      * encoded fragments (so not even a literal "@" appears - "@" is
      * always "&#64;", five characters, none of them the "@" byte
      * itself), meaning none of the plugin's other passes can ever find
-     * it. This pass locates the span+script pair with plain
-     * strpos()/stripos() (bounded, safe on any page size), decodes the
-     * assembled address for whitelist checking, and replaces the whole
-     * construct like any other match.
+     * it.
+     *
+     * The id="cloakHASH" match is deliberately lenient about
+     * serialisation - it doesn't assume "id" is the span's first or
+     * only attribute, or that the value is double-quoted - since the
+     * whole point is matching Joomla core's own generated markup
+     * reliably, not one specific way of writing it by hand. This pass
+     * locates the span+script pair with plain strpos()/stripos() plus
+     * the findTagNameStart()/findTagEnd() tag-boundary helpers (bounded,
+     * safe on any page size), decodes the assembled address for
+     * whitelist checking, and replaces the whole construct like any
+     * other match.
      *
      * @param   string  $html
      * @param   string  $replacement
@@ -676,7 +688,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
         $offset = 0;
         $length = strlen($html);
 
-        while (($spanStart = stripos($html, '<span id="cloak', $offset)) !== false) {
+        while (($spanStart = $this->findTagNameStart($html, 'span', $offset)) !== false) {
             $spanOpenEnd = $this->findTagEnd($html, $spanStart);
 
             if ($spanOpenEnd === false) {
@@ -687,7 +699,11 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
 
             $openTag = substr($html, $spanStart, $spanOpenEnd - $spanStart + 1);
 
-            if (!preg_match('/id\s*=\s*"cloak([a-z0-9]+)"/i', $openTag, $hashMatch)) {
+            // "id" doesn't have to be the first/only attribute, and its
+            // value can be single- or double-quoted - match either, and
+            // look for it anywhere in the tag rather than assuming a
+            // fixed attribute order.
+            if (!preg_match('/\bid\s*=\s*(["\'])cloak([a-z0-9]+)\1/i', $openTag, $hashMatch)) {
                 // Not actually a recognisable cloak span - copy just this
                 // opening tag and keep scanning after it.
                 $result .= substr($html, $offset, $spanOpenEnd + 1 - $offset);
@@ -695,7 +711,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
                 continue;
             }
 
-            $hash         = $hashMatch[1];
+            $hash         = $hashMatch[2];
             $spanClosePos = stripos($html, '</span>', $spanOpenEnd);
 
             if ($spanClosePos === false) {
