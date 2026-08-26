@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.0
+ * @version     1.14.1
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -34,24 +34,36 @@ class PlgSystemFgemailremover extends JPlugin
     private $emailRegex = '/[a-zA-Z0-9.\_%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/';
 
     /**
-     * Matches only the OPENING <a ... href="mailto:..."> tag, up to and
-     * including the tag's own closing ">". Deliberately bounded (cannot
-     * span past the tag's own end or the matching quote), unlike
-     * matching the whole <a>...</a> element with a DOTALL lazy wildcard,
-     * which on a page with many <a> tags can exceed PHP's PCRE
-     * backtrack limit and make preg_replace_callback() silently fail.
+     * Matches only the OPENING <a ... href="mailto:..."> or
+     * <a ... href=mailto:...> tag (both quoted and unquoted href values
+     * are valid HTML5), up to and including the tag's own closing ">".
+     * Deliberately bounded (cannot span past the tag's own end or the
+     * matching quote), unlike matching the whole <a>...</a> element
+     * with a DOTALL lazy wildcard, which on a page with many <a> tags
+     * can exceed PHP's PCRE backtrack limit and make
+     * preg_replace_callback() silently fail.
+     *
+     * Capture groups: 1 = quote character (quoted form only), 2 =
+     * address (quoted form), 3 = address (unquoted form) - exactly one
+     * of groups 2/3 is populated per match; see stripMailtoLinks().
+     *
      * The alternation `(?:[^>"\']|"[^"]*"|'[^']*')*` (rather than a
      * plain `[^>]*`) between attributes correctly treats a ">" inside a
      * quoted attribute value - e.g. <a data-check="a > b" href="mailto:
-     * ...">  - as part of that attribute, not the tag's own end; each
-     * alternative consumes at least one character so this stays a
-     * bounded, linear-time match, not a backtracking risk. The
+     * ...">  - as part of that attribute, not the tag's own end, and
+     * likewise means "href" appearing inside a different, unrelated
+     * attribute's own quoted value - e.g. <a data-note="href=&#39;
+     * mailto:fake@x&#39;">  - can never be mistaken for the tag's real
+     * href (that whole quoted value is consumed as one atomic unit, so
+     * the "href" text inside it is never exposed to the \bhref\b
+     * match); each alternative consumes at least one character so this
+     * stays a bounded, linear-time match, not a backtracking risk. The
      * corresponding closing </a> is located separately with plain
      * stripos() - see stripMailtoLinks().
      *
      * @var string
      */
-    private $mailtoOpenTagRegex = '#<a\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*\bhref\s*=\s*(["\'])mailto:([^"\']*)\1(?:[^>"\']|"[^"]*"|\'[^\']*\')*>#i';
+    private $mailtoOpenTagRegex = '#<a\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*\bhref\s*=\s*(?:(["\'])mailto:([^"\']*)\1|mailto:([^\s>]+))(?:[^>"\']|"[^"]*"|\'[^\']*\')*>#i';
 
     public function onAfterRender()
     {
@@ -793,11 +805,20 @@ class PlgSystemFgemailremover extends JPlugin
 
     /**
      * Removes mailto: links from a chunk of HTML. Finds each opening
-     * <a ... href="mailto:..."> tag with a tightly bounded regex
-     * (cannot span past the tag's closing ">"), then locates the
-     * matching </a> with plain stripos() rather than a DOTALL lazy
-     * wildcard - so a page with many <a> tags cannot blow the PCRE
-     * backtrack limit.
+     * <a ... href="mailto:..."> (or unquoted href=mailto:...) tag with
+     * a tightly bounded regex (cannot span past the tag's closing ">"),
+     * strips any mailto query string (?subject=..., ?body=..., etc.) so
+     * only the real address is used for whitelist checks and as the
+     * replacement's content, then locates the matching </a> with plain
+     * stripos() rather than a DOTALL lazy wildcard - so a page with many
+     * <a> tags cannot blow the PCRE backtrack limit.
+     *
+     * Known, deliberate limitation: this looks for the *first* </a>
+     * after the opening tag. Real-world HTML from Joomla/browsers never
+     * nests <a> elements (nesting anchors is invalid HTML and rendered
+     * inconsistently across browsers anyway), so this is not expected
+     * to matter in practice - but a page with genuinely malformed,
+     * nested anchor markup could see the wrong closing tag matched.
      *
      * @param   string  $html
      * @param   string  $replacement
@@ -814,7 +835,28 @@ class PlgSystemFgemailremover extends JPlugin
         while ($offset < $length && preg_match($this->mailtoOpenTagRegex, $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
             $tagStart = $m[0][1];
             $tagEnd   = $tagStart + strlen($m[0][0]);
-            $mailAddr = rawurldecode($m[2][0]);
+
+            // Exactly one of the quoted (group 2) / unquoted (group 3)
+            // forms participated - PHP drops a wholly-unmatched
+            // trailing group from the array entirely, so check
+            // isset() before indexing.
+            $rawAddr = '';
+
+            if (isset($m[2]) && $m[2][0] !== '') {
+                $rawAddr = $m[2][0];
+            } elseif (isset($m[3]) && $m[3][0] !== '') {
+                $rawAddr = $m[3][0];
+            }
+
+            // A mailto: href can carry additional headers after the
+            // address - e.g. "mailto:info@x.sk?subject=Hello&body=..."
+            // - which are not part of the address itself and must not
+            // be treated as such (for whitelist matching, or as the
+            // visible/alt text of the replacement).
+            $queryPos = strpos($rawAddr, '?');
+            $rawAddr  = $queryPos !== false ? substr($rawAddr, 0, $queryPos) : $rawAddr;
+
+            $mailAddr = rawurldecode($rawAddr);
 
             $result .= substr($html, $offset, $tagStart - $offset);
 

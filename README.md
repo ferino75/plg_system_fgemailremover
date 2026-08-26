@@ -2,14 +2,16 @@
   <img src="assets/logo.png" alt="plg_system_fgemailremover logo" width="128" height="128">
 </p>
 
-# FG Email Remover plugin for Joomla
+<h1 align="center">FG Email Remover plugin for Joomla</h1>
 
-![Version](https://img.shields.io/github/v/release/ferino75/plg_system_fgemailremover?label=version)
-![Joomla](https://img.shields.io/badge/Joomla-3.10%20--%206-orange)
-![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)
-[![JED](https://img.shields.io/badge/Joomla!%20Extensions%20Directory%E2%84%A2-EmailRemover-blue)](https://extensions.joomla.org/extension/access-a-security/site-security/email-remover/)
-![License](https://img.shields.io/badge/license-GPL--2.0-green)
-![Downloads](https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total?cacheSeconds=3600)
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/ferino75/plg_system_fgemailremover?color=FF6B4A&label=release" alt="Latest release">
+  <img src="https://img.shields.io/badge/Joomla-3.10%20--%206-5091CD.svg?logo=joomla&logoColor=white" alt="Joomla">
+  <img src="https://img.shields.io/badge/PHP-7.4%2B-777BB4.svg?logo=php&logoColor=white" alt="PHP">
+  <a href="https://extensions.joomla.org/extension/access-a-security/site-security/email-remover/"><img src="https://img.shields.io/badge/Joomla!%20Extensions%20Directory%E2%84%A2-EmailRemover-blue" alt="JED"></a>
+  <img src="https://img.shields.io/badge/license-GPL--2.0-green.svg" alt="License">
+  <img src="https://img.shields.io/github/downloads/ferino75/plg_system_fgemailremover/total?cacheSeconds=3600" alt="Downloads">
+</p>
 
 A Joomla **system plugin** that strips email addresses out of the public-facing HTML output of a site, so they can never be scraped by spam harvesters — because they simply never reach the page in the first place.
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## joomla4-6/ v1.7.1 - 2026-08-09
+# Hardens `stripMailtoLinks()` against two remaining gaps: (1) unquoted `href` values - e.g. `<a href=mailto:info@x.sk>`, valid HTML5 - were not matched at all, leaving the address in the page's `href`; the matching regex now accepts both quoted and unquoted forms; (2) a mailto: address followed by extra headers - e.g. `<a href="mailto:info@x.sk?subject=Hello&body=...">` - was treated as if the whole `info@x.sk?subject=Hello&body=...` string were the address, which could defeat whitelist matching and leaked the query string into image-mode alt text; the query string is now stripped before the address is used for either purpose (detection/removal of the link itself was never affected either way - the whole `<a>` was always replaced)
+^ Re-verified: a fake `href='mailto:...'` sitting inside an unrelated attribute's own quoted value (e.g. `data-note="href='mailto:fake@x'"`) is correctly *not* matched as a real href - confirmed this was already safe after the v1.6.0 tag-boundary hardening, no change needed there
+^ Documented, deliberate limitation: matching stops at the *first* `</a>` after the opening tag - genuinely nested `<a>` elements (invalid HTML to begin with, and rendered inconsistently across browsers) are not specifically handled
+
+## v1.14.1 - 2026-08-09
+Same fixes as joomla4-6/ v1.7.1 above, ported to this build
+
 ## joomla4-6/ v1.7.0 - 2026-08-09
 # Loosens the classic email.cloak `<span id="cloakHASH">` detection, which previously assumed one exact serialisation - `<span id="cloak` as a fixed literal substring (double quotes, "id" as the first/only attribute, no space around "="). While that's what Joomla core's own `email.cloak` helper always emits (verified against a real captured page), assuming one exact form was needlessly fragile. Now matches `id="cloakHASH"` (or `id='cloakHASH'`) anywhere within the span's attributes, in either quote style, regardless of what other attributes come before it - e.g. `<span class="contact" id="cloakABC">` or `<span id='cloakABC'>` are now both recognised
 ^ The early-exit check (`stripos($buffer, 'id="cloak')`) had the same rigidity - loosened to just `stripos($buffer, 'cloak')`, since a page whose *only* email content was one of the now-newly-recognised span variants would otherwise still have been skipped entirely before ever reaching the (already-fixed) detection itself
