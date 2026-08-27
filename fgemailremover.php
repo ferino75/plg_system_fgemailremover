@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.2
+ * @version     1.14.3
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -147,6 +147,36 @@ class PlgSystemFgemailremover extends JPlugin
     }
 
     /**
+     * Strips any embedded email-address-looking pattern out of an
+     * admin-configured replacement string ("Replacement text" or
+     * "Image alt text") before it's used - a defensive backstop against
+     * an administrator accidentally typing a real address into the very
+     * field meant to replace a removed one (e.g. "Write to
+     * support@example.com instead"), which would otherwise reach the
+     * page untouched, since it's substituted in *after* the plugin's
+     * own scanning pass has already run over the surrounding HTML.
+     * Safe to run unconditionally here - these are short,
+     * administrator-configured strings, not page-sized input, so a
+     * plain preg_replace() with the plugin's existing bounded email
+     * pattern carries none of the backtracking risk the rest of the
+     * plugin is otherwise careful to avoid.
+     *
+     * @param   string  $text
+     *
+     * @return  string
+     */
+    private function stripSelfEmails($text)
+    {
+        if ($text === '' || strpos($text, '@') === false) {
+            return $text;
+        }
+
+        $cleaned = preg_replace($this->emailRegex, '', $text);
+
+        return $cleaned === null ? $text : $cleaned;
+    }
+
+    /**
      * Processes the full page buffer, leaving <script>/<style> blocks
      * untouched and stripping emails from everything else. Walks the
      * buffer with plain strpos()/stripos() to locate skip-block
@@ -160,7 +190,7 @@ class PlgSystemFgemailremover extends JPlugin
      */
     private function processBuffer($html)
     {
-        $replacement = (string) $this->params->get('replacement_text', '');
+        $replacement = $this->stripSelfEmails((string) $this->params->get('replacement_text', ''));
         $mode        = (string) $this->params->get('replacement_mode', 'text');
 
         // Classic Joomla email.cloak spans embed the real address inside
@@ -924,7 +954,7 @@ class PlgSystemFgemailremover extends JPlugin
             return $replacement;
         }
 
-        $altText  = trim((string) $this->params->get('image_alt_text', ''));
+        $altText  = $this->stripSelfEmails(trim((string) $this->params->get('image_alt_text', '')));
         $alt      = $altText !== '' ? $altText : 'E-mailová adresa';
         $cssClass = trim((string) $this->params->get('image_css_class', ''));
         $classes  = 'emailremover-img' . ($cssClass !== '' ? ' ' . $cssClass : '');

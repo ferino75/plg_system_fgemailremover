@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.3 - 2026-08-09
++ Adds a defensive backstop against an administrator accidentally leaving a real email address inside the "Replacement text" or "Image alt text" parameter itself (e.g. "Write to support@example.com instead") - since that string is substituted in *after* the plugin's own scanning pass has already run over the surrounding page, it would otherwise reach the output untouched. Both fields are now re-scanned with the plugin's own bounded email pattern and any match is stripped before use - safe to do unconditionally, since these are short admin-configured strings, not page-sized input
+
+## v1.14.3 - 2026-08-09
+Same fix as joomla4-6/ v1.7.3 above, ported to this build
+
 ## joomla4-6/ v1.7.2 - 2026-08-09
 # Fixes whitelist matching for a `mailto:` link listing multiple comma-separated recipients (RFC 6068 - e.g. `mailto:a@x.sk,b@y.sk`) - previously checked as one literal string against the whitelist, which essentially never matched even when every individual address was whitelisted, so such links always got replaced. `isWhitelisted()` now splits on "," (safe unconditionally - a single valid address can never itself contain a literal comma) and requires *every* individual address to be whitelisted for the whole link to be left untouched; if even one recipient isn't, the link is still replaced, since leaving it would expose that address
 ^ Verified the other suspected gaps from the same review - case sensitivity, a trailing "." after an address in prose, and `mailto:` URL-encoding (`%40` for "@") - were already handled correctly (case-folding, the email regex's own boundary, and the existing `rawurldecode()` call respectively); no changes needed there. A mailto: URI has no display-name concept to normalise (RFC 6068) - the visible link text is separate from the href value entirely
