@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.5
+ * @version     1.14.6
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -1140,9 +1140,19 @@ class PlgSystemFgemailremover extends JPlugin
     }
 
     /**
-     * Resolves the "image_font_path" parameter to an actual readable
-     * file - accepts either an absolute filesystem path or one relative
-     * to the Joomla root (e.g. "/media/fonts/Poppins-Regular.ttf").
+     * Resolves the "image_font_path" parameter to an actual, readable
+     * .ttf/.otf font file - restricted to somewhere inside Joomla's
+     * public /media directory tree, never an arbitrary absolute path or
+     * one that escapes it via "../" traversal or a symlink.
+     *
+     * This value can only be set by a trusted backend administrator
+     * (the same trust level as e.g. a Custom HTML module's content),
+     * but unlike displaying admin-authored HTML, this path is handed to
+     * FreeType via imagettfbbox()/imagettftext() - a native C parser,
+     * and font-parsing libraries have a real history of memory-safety
+     * bugs on malformed input. Restricting what this setting can even
+     * point at is cheap, worthwhile defence-in-depth for that reason,
+     * regardless of how trusted the person setting it is.
      *
      * @param   string  $fontPath
      *
@@ -1150,13 +1160,48 @@ class PlgSystemFgemailremover extends JPlugin
      */
     private function resolveFontPath($fontPath)
     {
-        if (is_file($fontPath)) {
-            return $fontPath;
+        $extension = strtolower((string) pathinfo($fontPath, PATHINFO_EXTENSION));
+
+        if ($extension !== 'ttf' && $extension !== 'otf') {
+            return null;
         }
 
-        $candidate = JPATH_ROOT . '/' . ltrim($fontPath, '/');
+        $realBase = realpath(JPATH_ROOT . '/media');
 
-        return is_file($candidate) ? $candidate : null;
+        if ($realBase === false) {
+            return null;
+        }
+
+        $realCandidate = realpath(JPATH_ROOT . '/' . ltrim($fontPath, '/'));
+
+        if ($realCandidate === false) {
+            return null;
+        }
+
+        // realpath() has already resolved away any "../" traversal and
+        // symlinks on both sides, so a simple prefix check here is
+        // reliable - the trailing separator on $realBase is what
+        // prevents a sibling directory with a matching prefix (e.g.
+        // "/media-evil") from being wrongly accepted.
+        if (strpos($realCandidate, $realBase . DIRECTORY_SEPARATOR) !== 0) {
+            return null;
+        }
+
+        if (!is_file($realCandidate) || !is_readable($realCandidate)) {
+            return null;
+        }
+
+        // A generous sanity cap, not a real-world font size limit - large
+        // CJK/full-Unicode-coverage fonts can legitimately run into the
+        // tens of megabytes; this only guards against something wildly
+        // implausible being pointed at.
+        $maxBytes = 20 * 1024 * 1024;
+
+        if (filesize($realCandidate) > $maxBytes) {
+            return null;
+        }
+
+        return $realCandidate;
     }
 
     /**

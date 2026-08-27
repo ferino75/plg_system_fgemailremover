@@ -1,5 +1,13 @@
 # Changelog
 
+## joomla4-6/ v1.7.6 - 2026-08-09
+# Restricts the "TTF font path" parameter to files resolving inside Joomla's public /media directory - previously any absolute filesystem path, or a relative path escaping via "../", was accepted and handed straight to FreeType via imagettfbbox()/imagettftext(). This value can only be set by a trusted backend administrator, but font-parsing libraries have a real history of memory-safety bugs on malformed input, so narrowing what the setting can even point at is cheap, worthwhile defence-in-depth regardless of that trust level. Also now enforces a .ttf/.otf extension and a generous 20MB sanity size cap
+^ BEHAVIOUR CHANGE: a font path pointing outside /media (via an absolute path, or "../" traversal) that may have previously worked will now be rejected and silently fall back to the built-in bitmap font, exactly as if no font path were set at all. If you use a custom font, move it under this site's /media directory (e.g. /media/fonts/) and update the path in the plugin's settings after updating
++ Field description updated in both languages to state the /media restriction explicitly
+
+## v1.14.6 - 2026-08-09
+Same fix as joomla4-6/ v1.7.6 above, ported to this build
+
 ## joomla4-6/ v1.7.5 - 2026-08-09
 ^ Adds an `IMAGE_RENDERER_VERSION` class constant, now included in the generated-image cache key alongside the address/font path/font size. Text colour, background, padding etc. are still hardcoded constants (not configurable) today, so nothing about the current output actually varies - this is purely forward-proofing: any *future* change to those constants (or new ones added later) can invalidate every existing cache entry at once just by bumping this one number, instead of it having to be remembered and separately threaded into the cache key by hand at that time
 
