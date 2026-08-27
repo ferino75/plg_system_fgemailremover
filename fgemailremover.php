@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.7
+ * @version     1.14.8
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -1284,6 +1284,24 @@ class PlgSystemFgemailremover extends JPlugin
      * required). Used when no TTF font is configured, or as a fallback
      * if TTF rendering fails.
      *
+     * GD's built-in bitmap fonts (imagestring()) are a legacy,
+     * byte-oriented API - they only cover the Latin-1/ASCII range and
+     * are not UTF-8 aware. $email normally comes from this plugin's own
+     * ASCII-only email regex, but a few detection paths (a mailto: href
+     * value, a decoded <joomla-hidden-mail>/classic-cloak payload) don't
+     * validate it against that pattern and could carry genuine non-ASCII
+     * content (e.g. an internationalised/EAI mailbox). Rendering that
+     * here would be wrong in two ways at once: the width calculation
+     * below counts bytes, not characters, so a multi-byte UTF-8 string
+     * would size the canvas too wide, and imagestring() itself would
+     * draw the wrong glyphs (or visibly broken ones) for anything
+     * outside Latin-1, regardless of the width fix. Rather than risk
+     * either, non-ASCII input is rejected outright here and the caller
+     * falls back to the text replacement instead - exactly as when
+     * image generation isn't available at all. (A properly configured
+     * TTF font doesn't have this problem: imagettftext()/imagettfbbox()
+     * are UTF-8 aware, so that path is unaffected.)
+     *
      * @param   string  $email
      * @param   string  $absolutePath
      *
@@ -1291,6 +1309,10 @@ class PlgSystemFgemailremover extends JPlugin
      */
     private function renderEmailImageBitmap($email, $absolutePath)
     {
+        if (!mb_check_encoding($email, 'ASCII')) {
+            return false;
+        }
+
         $font      = 5;
         $paddingX  = 6;
         $paddingY  = 4;

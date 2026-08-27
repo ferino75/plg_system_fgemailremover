@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.8 - 2026-08-09
+# Fixes the GD built-in bitmap font path (used when no custom TTF font is configured) potentially mis-sizing or garbling non-ASCII content - it's a legacy, byte-oriented API, not UTF-8 aware, but a few detection paths (a mailto: href value, a decoded `<joomla-hidden-mail>`/classic-cloak payload) don't validate their result against the plugin's own ASCII-only email regex first, so genuinely non-ASCII content (e.g. an internationalised/EAI mailbox address) could reach it. `renderEmailImageBitmap()` now checks the input is pure ASCII before attempting to render, and rejects it otherwise (falling back to the text replacement, exactly as when image generation isn't available at all) rather than risk an incorrectly-sized canvas or visibly broken glyphs. The TTF rendering path is unaffected - imagettftext()/imagettfbbox() are UTF-8 aware, so a properly configured font with the right glyph coverage renders non-ASCII addresses correctly there
+
+## v1.14.8 - 2026-08-09
+Same fix as joomla4-6/ v1.7.8 above, ported to this build
+
 ## joomla4-6/ v1.7.7 - 2026-08-09
 # Adds two resource-consumption bounds to the image-rendering path: (1) the "Font size" parameter is now clamped server-side to 6-72pt (matching the admin form's existing `min`/`max`, which are only client-side HTML hints and don't stop a crafted request or a directly-edited params value from carrying something implausible) before being handed to imagettfbbox()/imagettftext(); (2) any candidate "address" longer than RFC 5321's own 254-character maximum email length is now rejected before image rendering is even attempted (falls back to the text replacement instead) - real addresses can never legitimately exceed that, but a few detection paths parse content the plugin doesn't fully control (JSON-LD string values, a decoded `<joomla-hidden-mail>`/classic-cloak payload), so an unexpectedly long string is possible there, and rendering it anyway would size the GD canvas proportionally to its length
 
