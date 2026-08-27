@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.9
+ * @version     1.14.10
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -158,7 +158,7 @@ class PlgSystemFgemailremover extends JPlugin
                 (microtime(true) - $start) * 1000,
                 round($sizeBefore / 1024),
                 round($sizeAfter / 1024),
-                JUri::getInstance()->toString()
+                JUri::getInstance()->getPath()
             ),
             JLog::INFO,
             'emailremover'
@@ -406,7 +406,7 @@ class PlgSystemFgemailremover extends JPlugin
             sprintf(
                 'Possible email address left untouched inside a <%s> block (not parsed by design - see README) on %s',
                 $tag,
-                JUri::getInstance()->toString()
+                JUri::getInstance()->getPath()
             ),
             JLog::WARNING,
             'emailremover_audit'

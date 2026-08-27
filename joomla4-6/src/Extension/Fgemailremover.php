@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.7.9
+ * @version     1.7.10
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -195,7 +195,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
                 (microtime(true) - $start) * 1000,
                 round($sizeBefore / 1024),
                 round($sizeAfter / 1024),
-                Uri::getInstance()->toString()
+                Uri::getInstance()->getPath()
             ),
             Log::INFO,
             'emailremover'
@@ -577,7 +577,7 @@ class Fgemailremover extends CMSPlugin implements SubscriberInterface
             sprintf(
                 'Possible email address left untouched inside a <%s> block (not parsed by design - see README) on %s',
                 $tag,
-                Uri::getInstance()->toString()
+                Uri::getInstance()->getPath()
             ),
             Log::WARNING,
             'emailremover_audit'

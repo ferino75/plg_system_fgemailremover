@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.10 - 2026-08-09
+^ The optional diagnostic logs ("Log processing time" and "Audit mode", both off by default) now log only the request's URL *path* instead of the full URL - the query string could carry sensitive values (a token, a search term, or even an email address passed as a GET parameter), and there's no reason for these diagnostics to capture that. `Uri::getInstance()->toString()` replaced with `Uri::getInstance()->getPath()` in both log call sites
+
+## v1.14.10 - 2026-08-09
+Same change as joomla4-6/ v1.7.10 above, ported to this build
+
 ## joomla4-6/ v1.7.9 - 2026-08-09
 ^ Refines the `isInsideTagAttribute()` heuristic to reduce false positives: previously, any stray unescaped "<" used as a literal "less than" sign in ordinary prose (e.g. "2 < 3 a@example.com") with no subsequent ">" was indistinguishable from a genuinely truncated tag, so a match after it was silently stripped with no replacement (the safe-but-imprecise behaviour for "inside an attribute"). Now also requires the character immediately after that "<" to look like the actual start of a real tag (a letter, "/", "!" or "?" - never whitespace or a digit, which no genuine HTML tag ever begins with). This is purely additive - it can only turn a previous "yes" into a "no", never the reverse - so the original, more important case this heuristic exists for (an address inside a real attribute, e.g. a `<meta>` description, never corrupting the surrounding markup) is unaffected and still verified working
 
