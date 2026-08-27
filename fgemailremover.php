@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.4
+ * @version     1.14.5
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -22,6 +22,25 @@ defined('_JEXEC') or die;
  */
 class PlgSystemFgemailremover extends JPlugin
 {
+    /**
+     * Bumped whenever anything about the generated image's actual
+     * appearance changes - text/background colour, padding, font
+     * fallback logic, etc. Included in the cache key (see
+     * getEmailImageInfo()) specifically so such a change can never
+     * silently keep serving stale-looking cached PNGs generated under
+     * the old rendering: bumping this one constant invalidates every
+     * existing cache entry at once, without having to remember to also
+     * enumerate every individual visual parameter into the key by hand.
+     * None of those parameters are actually configurable today (colour,
+     * padding etc. are hardcoded constants in renderEmailImageTtf()/
+     * renderEmailImageBitmap()), so nothing about the current output
+     * varies - this exists purely so a *future* change to those
+     * constants (or new ones) can't accidentally reuse old images.
+     *
+     * @var int
+     */
+    const IMAGE_RENDERER_VERSION = 1;
+
     protected $autoloadLanguage = true;
 
     /**
@@ -999,7 +1018,8 @@ class PlgSystemFgemailremover extends JPlugin
         $cacheKey = md5(
             mb_strtolower($email) . '|'
             . trim((string) $this->params->get('image_font_path', '')) . '|'
-            . (string) $this->params->get('image_font_size', 14)
+            . (string) $this->params->get('image_font_size', 14) . '|'
+            . 'r' . self::IMAGE_RENDERER_VERSION
         );
 
         $relativeDir  = '/images/fgemailremover_cache';
