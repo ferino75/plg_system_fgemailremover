@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.9 - 2026-08-09
+^ Refines the `isInsideTagAttribute()` heuristic to reduce false positives: previously, any stray unescaped "<" used as a literal "less than" sign in ordinary prose (e.g. "2 < 3 a@example.com") with no subsequent ">" was indistinguishable from a genuinely truncated tag, so a match after it was silently stripped with no replacement (the safe-but-imprecise behaviour for "inside an attribute"). Now also requires the character immediately after that "<" to look like the actual start of a real tag (a letter, "/", "!" or "?" - never whitespace or a digit, which no genuine HTML tag ever begins with). This is purely additive - it can only turn a previous "yes" into a "no", never the reverse - so the original, more important case this heuristic exists for (an address inside a real attribute, e.g. a `<meta>` description, never corrupting the surrounding markup) is unaffected and still verified working
+
+## v1.14.9 - 2026-08-09
+Same refinement as joomla4-6/ v1.7.9 above, ported to this build
+
 ## joomla4-6/ v1.7.8 - 2026-08-09
 # Fixes the GD built-in bitmap font path (used when no custom TTF font is configured) potentially mis-sizing or garbling non-ASCII content - it's a legacy, byte-oriented API, not UTF-8 aware, but a few detection paths (a mailto: href value, a decoded `<joomla-hidden-mail>`/classic-cloak payload) don't validate their result against the plugin's own ASCII-only email regex first, so genuinely non-ASCII content (e.g. an internationalised/EAI mailbox address) could reach it. `renderEmailImageBitmap()` now checks the input is pure ASCII before attempting to render, and rejects it otherwise (falling back to the text replacement, exactly as when image generation isn't available at all) rather than risk an incorrectly-sized canvas or visibly broken glyphs. The TTF rendering path is unaffected - imagettftext()/imagettfbbox() are UTF-8 aware, so a properly configured font with the right glyph coverage renders non-ASCII addresses correctly there
 

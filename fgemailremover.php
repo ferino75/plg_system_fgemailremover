@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.8
+ * @version     1.14.9
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -838,6 +838,19 @@ class PlgSystemFgemailremover extends JPlugin
      * (meta content, title=, alt=, data-*=, ...) apart from ordinary
      * page text, so markup is never injected into an attribute value.
      *
+     * The plain "last '<' comes after the last '>'" check alone would
+     * also flag a stray, unescaped "<" used as a literal "less than"
+     * sign in ordinary prose (e.g. "2 < 3 a@example.com") as if it were
+     * an open tag, since there's nothing structurally distinguishing
+     * that from a genuinely truncated one from this heuristic's point
+     * of view alone. A cheap, purely additive refinement narrows that:
+     * every real HTML tag's name starts immediately after "<" with a
+     * letter, "/", "!" or "?" - never whitespace or a digit - so this
+     * only ever turns a previous "yes" into a "no" (never the reverse),
+     * meaning it can only reduce false positives, not reintroduce the
+     * original attribute-corruption risk this heuristic exists to
+     * avoid in the first place.
+     *
      * @param   string  $html
      * @param   int     $position
      *
@@ -849,7 +862,13 @@ class PlgSystemFgemailremover extends JPlugin
         $lastOpen  = strrpos($before, '<');
         $lastClose = strrpos($before, '>');
 
-        return $lastOpen !== false && ($lastClose === false || $lastOpen > $lastClose);
+        if ($lastOpen === false || ($lastClose !== false && $lastOpen <= $lastClose)) {
+            return false;
+        }
+
+        $nextChar = ($lastOpen + 1 < strlen($before)) ? $before[$lastOpen + 1] : '';
+
+        return $nextChar !== '' && (ctype_alpha($nextChar) || $nextChar === '/' || $nextChar === '!' || $nextChar === '?');
     }
 
     /**
