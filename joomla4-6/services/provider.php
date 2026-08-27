@@ -3,7 +3,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.2.0
+ * @version     1.7.11
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -26,10 +26,19 @@ return new class () implements ServiceProviderInterface {
             PluginInterface::class,
             function (Container $container) {
                 $dispatcher = $container->get(DispatcherInterface::class);
-                $plugin     = new Fgemailremover(
-                    $dispatcher,
-                    (array) PluginHelper::getPlugin('system', 'fgemailremover')
-                );
+
+                // PluginHelper::getPlugin() can return null in
+                // transitional states (e.g. during install/update,
+                // before the #__extensions row is fully in place) -
+                // an explicit check here, rather than casting null
+                // straight to (array), makes that fallback to an
+                // empty config deliberate and visible in the code
+                // rather than a silent side effect of PHP's casting
+                // rules.
+                $pluginConfig = PluginHelper::getPlugin('system', 'fgemailremover');
+                $config       = $pluginConfig ? (array) $pluginConfig : [];
+
+                $plugin = new Fgemailremover($dispatcher, $config);
                 $plugin->setApplication(Factory::getApplication());
 
                 return $plugin;

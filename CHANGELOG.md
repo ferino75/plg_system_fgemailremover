@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.11 - 2026-08-09
+# Fixes `services/provider.php`'s own `@version` PHPDoc comment, which had silently drifted out of sync with the rest of the joomla4-6/ build (stuck at 1.2.0 while everything else moved on) - my own version-bump commands in several previous releases targeted the *previous* version string as an exact match, and since provider.php was already out of sync by then, those substitutions simply found no match and silently did nothing, with no error to catch it. Now at 1.7.11, matching the rest of this release; will double-check this file explicitly going forward
++ `services/provider.php` no longer casts a possibly-null `PluginHelper::getPlugin('system', 'fgemailremover')` result straight to `(array)` - while `(array) null` harmlessly produces an empty array in PHP, doing that implicitly could quietly mask a genuine configuration problem. Now checks explicitly and falls back to an empty array only when the lookup really returns nothing (e.g. a transitional state during install/update, before the plugin's `#__extensions` row is fully in place)
+
+(This release only touches the joomla4-6/ build - the classic J3.10 build (root) is unaffected and stays at v1.14.10.)
+
 ## joomla4-6/ v1.7.10 - 2026-08-09
 ^ The optional diagnostic logs ("Log processing time" and "Audit mode", both off by default) now log only the request's URL *path* instead of the full URL - the query string could carry sensitive values (a token, a search term, or even an email address passed as a GET parameter), and there's no reason for these diagnostics to capture that. `Uri::getInstance()->toString()` replaced with `Uri::getInstance()->getPath()` in both log call sites
 
