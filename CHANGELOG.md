@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.7 - 2026-08-09
+# Adds two resource-consumption bounds to the image-rendering path: (1) the "Font size" parameter is now clamped server-side to 6-72pt (matching the admin form's existing `min`/`max`, which are only client-side HTML hints and don't stop a crafted request or a directly-edited params value from carrying something implausible) before being handed to imagettfbbox()/imagettftext(); (2) any candidate "address" longer than RFC 5321's own 254-character maximum email length is now rejected before image rendering is even attempted (falls back to the text replacement instead) - real addresses can never legitimately exceed that, but a few detection paths parse content the plugin doesn't fully control (JSON-LD string values, a decoded `<joomla-hidden-mail>`/classic-cloak payload), so an unexpectedly long string is possible there, and rendering it anyway would size the GD canvas proportionally to its length
+
+## v1.14.7 - 2026-08-09
+Same fixes as joomla4-6/ v1.7.7 above, ported to this build
+
 ## joomla4-6/ v1.7.6 - 2026-08-09
 # Restricts the "TTF font path" parameter to files resolving inside Joomla's public /media directory - previously any absolute filesystem path, or a relative path escaping via "../", was accepted and handed straight to FreeType via imagettfbbox()/imagettftext(). This value can only be set by a trusted backend administrator, but font-parsing libraries have a real history of memory-safety bugs on malformed input, so narrowing what the setting can even point at is cheap, worthwhile defence-in-depth regardless of that trust level. Also now enforces a .ttf/.otf extension and a generous 20MB sanity size cap
 ^ BEHAVIOUR CHANGE: a font path pointing outside /media (via an absolute path, or "../" traversal) that may have previously worked will now be rejected and silently fall back to the built-in bitmap font, exactly as if no font path were set at all. If you use a custom font, move it under this site's /media directory (e.g. /media/fonts/) and update the path in the plugin's settings after updating

@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.6
+ * @version     1.14.7
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -1005,6 +1005,17 @@ class PlgSystemFgemailremover extends JPlugin
      * for how the actual write avoids ever exposing a partially-written
      * file to a concurrent request in the first place.
      *
+     * Rejects (returns null for, so the caller falls back to the text
+     * replacement) anything longer than RFC 5321's own 254-character
+     * maximum total length for an email address - a real address can
+     * never legitimately exceed that, but a few of the plugin's
+     * detection paths (JSON-LD string values, a decoded
+     * <joomla-hidden-mail>/classic-cloak payload) parse content this
+     * plugin doesn't fully control, so an unexpectedly long string is
+     * possible there. Rendering it to a GD canvas anyway would size that
+     * canvas proportionally to the string's length, an unbounded
+     * resource cost for something that was never a real address.
+     *
      * @param   string  $email
      *
      * @return  array{url: string, width: int, height: int}|null
@@ -1012,6 +1023,10 @@ class PlgSystemFgemailremover extends JPlugin
     private function getEmailImageInfo($email)
     {
         if (!function_exists('imagecreatetruecolor') || !function_exists('imagepng')) {
+            return null;
+        }
+
+        if (strlen($email) > 254) {
             return null;
         }
 
@@ -1126,7 +1141,13 @@ class PlgSystemFgemailremover extends JPlugin
             $absoluteFontPath = $this->resolveFontPath($fontPath);
 
             if ($absoluteFontPath !== null) {
-                $fontSize = (float) $this->params->get('image_font_size', 14);
+                // The admin form's min="6" max="72" is only a client-side
+                // HTML hint - clamp again here server-side, since a
+                // crafted request or a directly-edited params value could
+                // otherwise still get through with something implausible
+                // (or negative/zero), which imagettfbbox()/imagettftext()
+                // would then size the canvas allocation around.
+                $fontSize = max(6.0, min(72.0, (float) $this->params->get('image_font_size', 14)));
 
                 if ($this->renderEmailImageTtf($email, $absolutePath, $absoluteFontPath, $fontSize)) {
                     return true;
