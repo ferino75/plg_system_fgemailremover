@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.3
+ * @version     1.14.4
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -977,6 +977,15 @@ class PlgSystemFgemailremover extends JPlugin
      * the actual file on disk, so they're always accurate regardless of
      * which rendering path (bitmap font or TTF) produced it.
      *
+     * getimagesize() is checked even on what looks like a cache hit
+     * (not just after generating): if a file exists at the cache path
+     * but turns out to be missing/corrupt - e.g. left behind by an
+     * interrupted write, or damaged some other way - this regenerates
+     * it rather than permanently giving up on that address the moment
+     * one bad file happens to exist there. See renderEmailImageAtomic()
+     * for how the actual write avoids ever exposing a partially-written
+     * file to a concurrent request in the first place.
+     *
      * @param   string  $email
      *
      * @return  array{url: string, width: int, height: int}|null
@@ -998,20 +1007,18 @@ class PlgSystemFgemailremover extends JPlugin
         $absoluteDir  = JPATH_ROOT . $relativeDir;
         $absolutePath = JPATH_ROOT . $relativePath;
 
-        if (!is_file($absolutePath)) {
+        $size = is_file($absolutePath) ? @getimagesize($absolutePath) : false;
+
+        if ($size === false) {
             if (!is_dir($absoluteDir) && !@mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
                 return null;
             }
 
-            if (!$this->renderEmailImage($email, $absolutePath)) {
+            $size = $this->renderEmailImageAtomic($email, $absoluteDir, $absolutePath);
+
+            if ($size === false) {
                 return null;
             }
-        }
-
-        $size = @getimagesize($absolutePath);
-
-        if ($size === false) {
-            return null;
         }
 
         return [
@@ -1019,6 +1026,63 @@ class PlgSystemFgemailremover extends JPlugin
             'width'  => $size[0],
             'height' => $size[1],
         ];
+    }
+
+    /**
+     * Renders $email to a uniquely-named temporary file inside
+     * $absoluteDir, validates it with getimagesize(), and only once
+     * confirmed valid atomically rename()s it onto $absolutePath - so a
+     * concurrent request reading $absolutePath can never observe a
+     * partially-written or corrupt file. rename() on the same
+     * filesystem is atomic (POSIX): at every point in time the path
+     * holds either the previous complete file (if any) or the fully
+     * written new one, never something in between - unlike writing
+     * imagepng() output directly to $absolutePath, where a second
+     * request's is_file()/getimagesize() could otherwise land in the
+     * middle of the first request's still-in-progress write.
+     *
+     * If two requests race to generate the same image, both produce
+     * byte-identical output (same address, same font settings), so
+     * whichever rename() ends up "winning" is immaterial - and
+     * tempnam() guarantees each request writes to its own uniquely
+     * named file, so they never collide with each other mid-write
+     * either.
+     *
+     * @param   string  $email
+     * @param   string  $absoluteDir   Must already exist and be writable.
+     * @param   string  $absolutePath  Final cache file path.
+     *
+     * @return  array|false  getimagesize() result for the published file, or false on failure.
+     */
+    private function renderEmailImageAtomic($email, $absoluteDir, $absolutePath)
+    {
+        $tempPath = @tempnam($absoluteDir, 'tmp_');
+
+        if ($tempPath === false) {
+            return false;
+        }
+
+        if (!$this->renderEmailImage($email, $tempPath)) {
+            @unlink($tempPath);
+
+            return false;
+        }
+
+        $size = @getimagesize($tempPath);
+
+        if ($size === false) {
+            @unlink($tempPath);
+
+            return false;
+        }
+
+        if (!@rename($tempPath, $absolutePath)) {
+            @unlink($tempPath);
+
+            return false;
+        }
+
+        return $size;
     }
 
     /**

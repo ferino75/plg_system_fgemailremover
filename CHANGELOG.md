@@ -1,5 +1,11 @@
 # Changelog
 
+## joomla4-6/ v1.7.4 - 2026-08-09
+# Fixes a race condition in the generated-image cache: writing the PNG directly to its final cache path meant a concurrent request could see the file mid-write (`is_file()` true, `getimagesize()` reading a truncated/corrupt file), and - worse - once *any* corrupt file existed at that path, it was never regenerated automatically, since only a missing file triggered a fresh render. Now renders to a uniquely-named temporary file in the same cache directory first, validates it with `getimagesize()`, and only then atomically `rename()`s it onto the final path - `rename()` on the same filesystem is atomic, so a concurrent reader always sees either the previous complete file or the fully-written new one, never a partial state. `getEmailImageInfo()` also now re-validates an existing cache file's `getimagesize()` result on every read (not only right after generating) and regenerates automatically if it's ever found to be corrupt/unreadable, making the cache self-healing instead of permanently stuck once a bad file exists
+
+## v1.14.4 - 2026-08-09
+Same fix as joomla4-6/ v1.7.4 above, ported to this build
+
 ## joomla4-6/ v1.7.3 - 2026-08-09
 + Adds a defensive backstop against an administrator accidentally leaving a real email address inside the "Replacement text" or "Image alt text" parameter itself (e.g. "Write to support@example.com instead") - since that string is substituted in *after* the plugin's own scanning pass has already run over the surrounding page, it would otherwise reach the output untouched. Both fields are now re-scanned with the plugin's own bounded email pattern and any match is stripped before use - safe to do unconditionally, since these are short admin-configured strings, not page-sized input
 
