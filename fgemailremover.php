@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.15.0
+ * @version     1.15.1
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -39,7 +39,7 @@ class PlgSystemFgemailremover extends JPlugin
      *
      * @var int
      */
-    const IMAGE_RENDERER_VERSION = 2;
+    const IMAGE_RENDERER_VERSION = 3;
 
     /**
      * How many physical pixels are rendered per intended CSS/display
@@ -1311,8 +1311,16 @@ class PlgSystemFgemailremover extends JPlugin
         $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
         $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
 
-        $paddingX = 6 * $scale;
-        $paddingY = 6 * $scale;
+        // Horizontal padding kept small (2px, not 6px) so the generated
+        // image's left edge sits close to flush with surrounding text -
+        // e.g. a contact list where the address line should start at
+        // roughly the same x position as the name/phone lines above and
+        // below it. A little is still kept (rather than 0) so
+        // anti-aliased glyph edges - especially italic/oblique or
+        // slightly-overhanging first/last characters - never get
+        // clipped right at the canvas boundary.
+        $paddingX = 2 * $scale;
+        $paddingY = 4 * $scale;
         $width    = ($maxX - $minX) + $paddingX * 2;
         $height   = ($maxY - $minY) + $paddingY * 2;
 
@@ -1377,7 +1385,11 @@ class PlgSystemFgemailremover extends JPlugin
         }
 
         $font      = 5;
-        $paddingX  = 6;
+        // See renderEmailImageTtf() for why paddingX is kept small
+        // rather than symmetric with paddingY - flush left-alignment
+        // with surrounding text matters more than generous breathing
+        // room on a small inline image like this.
+        $paddingX  = 2;
         $paddingY  = 4;
         $textWidth  = imagefontwidth($font) * strlen($email);
         $textHeight = imagefontheight($font);

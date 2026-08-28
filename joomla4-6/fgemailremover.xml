@@ -5,7 +5,7 @@
     <creationDate>August 2026</creationDate>
     <copyright>Copyright (C) 2026 Fero. All rights reserved.</copyright>
     <license>GNU General Public License version 2 or later</license>
-    <version>1.8.0</version>
+    <version>1.8.1</version>
     <description>PLG_SYSTEM_FGEMAILREMOVER_XML_DESCRIPTION</description>
 
     <namespace path="src">FG\Plugin\System\Fgemailremover</namespace>

@@ -1,5 +1,12 @@
 # Changelog
 
+## joomla4-6/ v1.8.1 - 2026-08-09
+^ Reduces the generated image's horizontal padding from 6px to 2px (CSS/display px) - the previous padding made the address visibly indented compared to plain-text sibling lines (e.g. a contact card's name/phone rows), since the image itself carried extra blank space on its left edge that the surrounding text doesn't have. A small amount is still kept, rather than 0, so anti-aliased glyph edges - especially italic/oblique fonts or slightly-overhanging first/last characters - are never clipped right at the canvas boundary. Vertical padding is unchanged
++ Bumps `IMAGE_RENDERER_VERSION` so every existing cached image regenerates automatically with the new, tighter padding - no manual cache clearing needed
+
+## v1.15.1 - 2026-08-09
+Same fix as joomla4-6/ v1.8.1 above, ported to this build
+
 ## joomla4-6/ v1.8.0 - 2026-08-09
 + Image mode's TTF font path now renders at 2x resolution ("@2x", the same technique as a standard `<img srcset>` retina asset) - the generated PNG has twice the actual pixel dimensions, while the HTML `width`/`height` attributes and inline style still declare the original, intended display size, so browsers downscale it. On a high-density (retina) screen this renders visibly sharper than before; on a standard screen it looks identical. Font size and padding are simply doubled internally before rendering - the font itself (a vector format) scales natively with no quality loss. The GD built-in bitmap font fallback (used when no TTF font is configured) is deliberately left at native 1x resolution - its glyphs are fixed-size bitmaps, so "doubling" them would mean blurry upscaling, the opposite of the goal
 ^ The image cache key now also factors in whether a request will render at 1x or 2x, so switching a font path on/off can never serve a wrongly-scaled cached image from before the change
