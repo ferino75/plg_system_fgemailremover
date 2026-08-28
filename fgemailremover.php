@@ -2,7 +2,7 @@
 /**
  * @package     System.Fgemailremover
  * @subpackage  plg_system_fgemailremover
- * @version     1.14.10
+ * @version     1.15.0
  *
  * @copyright   (C) 2026 Fero. All rights reserved.
  * @license     GNU General Public License version 2 or later
@@ -39,7 +39,29 @@ class PlgSystemFgemailremover extends JPlugin
      *
      * @var int
      */
-    const IMAGE_RENDERER_VERSION = 1;
+    const IMAGE_RENDERER_VERSION = 2;
+
+    /**
+     * How many physical pixels are rendered per intended CSS/display
+     * pixel for the TTF rendering path - i.e. a "@2x" image, the same
+     * technique as a standard <img srcset> retina asset: the PNG itself
+     * has twice the actual pixel dimensions, but the HTML width/height
+     * attributes (and inline style) declare the original, smaller
+     * intended display size, so browsers downscale it - which on a
+     * high-density (retina) screen renders sharp instead of soft/blurry.
+     *
+     * Deliberately only applied to the TTF path (font size and padding
+     * are simply doubled before rendering, then getEmailImageInfo()
+     * divides the resulting PNG's real pixel dimensions by this same
+     * factor for the HTML attributes) - GD's built-in bitmap fonts used
+     * by the fallback path have fixed, non-scalable glyph bitmaps, so
+     * "doubling" them would mean upscaling with resampling (blurry),
+     * the opposite of what this is for. The bitmap fallback stays at
+     * native 1x resolution.
+     *
+     * @var int
+     */
+    const IMAGE_RETINA_SCALE = 2;
 
     protected $autoloadLanguage = true;
 
@@ -1049,11 +1071,25 @@ class PlgSystemFgemailremover extends JPlugin
             return null;
         }
 
+        $fontPath = trim((string) $this->params->get('image_font_path', ''));
+
+        // Whether TTF rendering will actually be attempted (and hence
+        // whether this image will be a @2x retina render) is fully
+        // determined by config alone - if a font path is set and
+        // resolves to a real, readable, correctly-restricted .ttf/.otf
+        // file, computed the same way renderEmailImage() itself decides
+        // - so this can be known up front, before any rendering
+        // happens, for both a cache hit and a cache miss alike.
+        $scale = ($fontPath !== '' && function_exists('imagettftext') && function_exists('imagettfbbox') && $this->resolveFontPath($fontPath) !== null)
+            ? self::IMAGE_RETINA_SCALE
+            : 1;
+
         $cacheKey = md5(
             mb_strtolower($email) . '|'
-            . trim((string) $this->params->get('image_font_path', '')) . '|'
+            . $fontPath . '|'
             . (string) $this->params->get('image_font_size', 14) . '|'
             . 'r' . self::IMAGE_RENDERER_VERSION
+            . 's' . $scale
         );
 
         $relativeDir  = '/images/fgemailremover_cache';
@@ -1068,7 +1104,7 @@ class PlgSystemFgemailremover extends JPlugin
                 return null;
             }
 
-            $size = $this->renderEmailImageAtomic($email, $absoluteDir, $absolutePath);
+            $size = $this->renderEmailImageAtomic($email, $absoluteDir, $absolutePath, $scale);
 
             if ($size === false) {
                 return null;
@@ -1077,8 +1113,8 @@ class PlgSystemFgemailremover extends JPlugin
 
         return [
             'url'    => rtrim(JUri::root(true), '/') . $relativePath,
-            'width'  => $size[0],
-            'height' => $size[1],
+            'width'  => (int) round($size[0] / $scale),
+            'height' => (int) round($size[1] / $scale),
         ];
     }
 
@@ -1105,10 +1141,11 @@ class PlgSystemFgemailremover extends JPlugin
      * @param   string  $email
      * @param   string  $absoluteDir   Must already exist and be writable.
      * @param   string  $absolutePath  Final cache file path.
+     * @param   int     $scale         1 for a normal render, IMAGE_RETINA_SCALE for a @2x TTF render.
      *
      * @return  array|false  getimagesize() result for the published file, or false on failure.
      */
-    private function renderEmailImageAtomic($email, $absoluteDir, $absolutePath)
+    private function renderEmailImageAtomic($email, $absoluteDir, $absolutePath, $scale)
     {
         $tempPath = @tempnam($absoluteDir, 'tmp_');
 
@@ -1116,7 +1153,7 @@ class PlgSystemFgemailremover extends JPlugin
             return false;
         }
 
-        if (!$this->renderEmailImage($email, $tempPath)) {
+        if (!$this->renderEmailImage($email, $tempPath, $scale)) {
             @unlink($tempPath);
 
             return false;
@@ -1149,10 +1186,11 @@ class PlgSystemFgemailremover extends JPlugin
      *
      * @param   string  $email
      * @param   string  $absolutePath  Full filesystem path to write the PNG to.
+     * @param   int     $scale         The scale getEmailImageInfo() already decided on for this address - IMAGE_RETINA_SCALE if TTF rendering is expected to be used, 1 otherwise. Only the TTF path actually renders at this scale; the bitmap fallback always renders at native 1x regardless.
      *
      * @return  bool
      */
-    private function renderEmailImage($email, $absolutePath)
+    private function renderEmailImage($email, $absolutePath, $scale = 1)
     {
         $fontPath = trim((string) $this->params->get('image_font_path', ''));
 
@@ -1168,7 +1206,7 @@ class PlgSystemFgemailremover extends JPlugin
                 // would then size the canvas allocation around.
                 $fontSize = max(6.0, min(72.0, (float) $this->params->get('image_font_size', 14)));
 
-                if ($this->renderEmailImageTtf($email, $absolutePath, $absoluteFontPath, $fontSize)) {
+                if ($this->renderEmailImageTtf($email, $absolutePath, $absoluteFontPath, $fontSize * $scale, $scale)) {
                     return true;
                 }
                 // TTF rendering failed for some reason - fall through to
@@ -1245,16 +1283,22 @@ class PlgSystemFgemailremover extends JPlugin
     }
 
     /**
-     * Renders $email using a TrueType font.
+     * Renders $email using a TrueType font. When called with $scale ===
+     * IMAGE_RETINA_SCALE, $fontSize is expected to already be
+     * pre-multiplied by the caller (renderEmailImage()) - this only
+     * needs to know the scale itself to size the padding proportionally
+     * (padding is a fixed pixel amount, not derived from the font size,
+     * so it wouldn't otherwise grow with a doubled font).
      *
      * @param   string  $email
      * @param   string  $absolutePath
      * @param   string  $fontFile
-     * @param   float   $fontSize
+     * @param   float   $fontSize  Already scaled by the caller if $scale > 1.
+     * @param   int     $scale     1 for a normal render, IMAGE_RETINA_SCALE for a @2x render.
      *
      * @return  bool
      */
-    private function renderEmailImageTtf($email, $absolutePath, $fontFile, $fontSize)
+    private function renderEmailImageTtf($email, $absolutePath, $fontFile, $fontSize, $scale = 1)
     {
         $bbox = @imagettfbbox($fontSize, 0, $fontFile, $email);
 
@@ -1267,8 +1311,8 @@ class PlgSystemFgemailremover extends JPlugin
         $minY = min($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
         $maxY = max($bbox[1], $bbox[3], $bbox[5], $bbox[7]);
 
-        $paddingX = 6;
-        $paddingY = 6;
+        $paddingX = 6 * $scale;
+        $paddingY = 6 * $scale;
         $width    = ($maxX - $minX) + $paddingX * 2;
         $height   = ($maxY - $minY) + $paddingY * 2;
 
